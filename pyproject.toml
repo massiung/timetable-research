@@ -1,0 +1,28 @@
+[project]
+name = "timetable-research"
+version = "0.1.0"
+description = "Research codebase for ITC 2024 — Integrated Healthcare Timetabling Competition"
+requires-python = ">=3.11"
+dependencies = [
+    "ortools>=9.10",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pytest>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "ipykernel",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
