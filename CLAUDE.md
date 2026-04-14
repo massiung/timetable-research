@@ -45,16 +45,21 @@ These are hard limits imposed by the competition evaluation and must be respecte
 |------------|-------|
 | Wall-clock time per instance | **10 minutes (600 s)** |
 | Maximum threads | **4** |
-| Evaluation runs (finalist phase) | **10 runs per instance** |
-| Evaluation hardware | not published — assume a mid-range server |
+| Evaluation runs (finalist phase) | **10 independent trials with random seeds** |
+| CPU | AMD Ryzen Threadripper PRO 3975WX, 3.50 GHz |
+| RAM | 64 GB |
+| OS | Ubuntu Linux 22.4 |
+
+Scoring in the finalist phase: ranks are computed per trial and averaged across all trials and instances; lowest mean rank wins. This means **consistent quality across random seeds matters more than occasional best scores**.
 
 **Practical implications for solver code:**
 
-- Every solver must accept a `time_limit_seconds` parameter and enforce it internally. Target **≤ 580 s** to leave headroom for I/O and solution writing.
+- Every solver must accept `time_limit_seconds` and `seed` parameters and enforce them internally. Target **≤ 580 s** to leave headroom for I/O and solution writing.
 - OR-Tools CP-SAT: set `parameters.max_time_in_seconds = time_limit` and `parameters.num_search_workers = 4`.
 - Local search / LNS: use `time.monotonic()` for the stopping criterion, never iteration counts alone.
-- Because finalists are scored over 10 runs, solvers should either be **deterministic** (fixed seed) or have low variance. Document the seed strategy in `docs/algorithms.md`.
-- Do not benchmark on the test instances with a wall-clock budget shorter than 600 s — the results won't be comparable to competition scores.
+- Solvers must accept an external random seed and use it consistently — the 10 trials each use a different seed supplied by the organisers. A solver that ignores the seed and always does the same thing will still be evaluated correctly, but one that crashes or degrades on certain seeds will be penalised.
+- Ensure the solver runs correctly on **Linux** (Ubuntu 22.4). Avoid macOS-only dependencies.
+- Do not benchmark with a wall-clock budget shorter than 600 s — the results won't be comparable to competition scores.
 
 ## Architecture
 
