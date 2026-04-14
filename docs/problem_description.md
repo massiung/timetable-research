@@ -141,6 +141,17 @@ Nurses not assigned to any room in a shift can have `"rooms": []` or be omitted 
 | `patient_delay` | `PatientDelay` | Days between `surgery_release_day` and actual admission |
 | `unscheduled_optional` | `ElectiveUnscheduledPatients` | Count of optional patients not admitted |
 
+## Runtime Constraints
+
+| Constraint | Value |
+|------------|-------|
+| Wall-clock time limit per instance | **10 minutes (600 s)** |
+| Maximum parallelism | **4 threads** |
+| Finalist evaluation | **10 runs per instance** on hidden instances m01–m10 |
+| Evaluation hardware | not published |
+
+Solvers must produce a complete, valid JSON solution file within the time limit. The 10-run finalist evaluation means reproducibility (fixed random seed) or low score variance is important.
+
 ## Scoring
 
 Total score = Σ (weight × cost). Zero violations is required for a feasible solution; lower total cost is better among feasible solutions.

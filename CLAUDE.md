@@ -37,6 +37,25 @@ Validator output: first prints 9 hard-constraint **violation** counts (all must 
 
 Reference score for test01 reference solution: **3177** (0 violations).
 
+## Runtime Constraints
+
+These are hard limits imposed by the competition evaluation and must be respected by every solver:
+
+| Constraint | Value |
+|------------|-------|
+| Wall-clock time per instance | **10 minutes (600 s)** |
+| Maximum threads | **4** |
+| Evaluation runs (finalist phase) | **10 runs per instance** |
+| Evaluation hardware | not published — assume a mid-range server |
+
+**Practical implications for solver code:**
+
+- Every solver must accept a `time_limit_seconds` parameter and enforce it internally. Target **≤ 580 s** to leave headroom for I/O and solution writing.
+- OR-Tools CP-SAT: set `parameters.max_time_in_seconds = time_limit` and `parameters.num_search_workers = 4`.
+- Local search / LNS: use `time.monotonic()` for the stopping criterion, never iteration counts alone.
+- Because finalists are scored over 10 runs, solvers should either be **deterministic** (fixed seed) or have low variance. Document the seed strategy in `docs/algorithms.md`.
+- Do not benchmark on the test instances with a wall-clock budget shorter than 600 s — the results won't be comparable to competition scores.
+
 ## Architecture
 
 ```
