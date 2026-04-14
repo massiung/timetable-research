@@ -209,3 +209,6 @@ __marimo__/
 # IHTP validator binary
 validator/IHTP_Validator
 validator/build/
+
+# Solver-generated output (reference solutions sol_test*.json are committed separately)
+data/solutions/*_solution.json

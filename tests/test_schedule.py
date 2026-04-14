@@ -15,10 +15,12 @@ import pytest
 from src.utils.loader import load_instance
 from src.utils.schedule import Schedule
 
+
 # Shared instance fixture reused across all test classes
 @pytest.fixture(scope="module")
 def instance():
     return load_instance(Path("data/instances/test01.json"))
+
 
 INSTANCES_DIR = Path("data/instances")
 SOLUTIONS_DIR = Path("data/solutions")
@@ -77,10 +79,10 @@ class TestTest01Costs:
     """Individual weighted costs must match C++ validator output exactly."""
 
     def test_room_age_mix(self, test01):
-        assert test01.room_age_mix_cost() == 35       # weight=5, raw=7
+        assert test01.room_age_mix_cost() == 35  # weight=5, raw=7
 
     def test_room_skill_level(self, test01):
-        assert test01.room_skill_level_cost() == 43   # weight=1, raw=43
+        assert test01.room_skill_level_cost() == 43  # weight=1, raw=43
 
     def test_continuity_of_care(self, test01):
         assert test01.continuity_of_care_cost() == 885  # weight=5, raw=177
@@ -95,7 +97,7 @@ class TestTest01Costs:
         assert test01.surgeon_transfer_cost() == 0
 
     def test_patient_delay(self, test01):
-        assert test01.patient_delay_cost() == 660    # weight=5, raw=132
+        assert test01.patient_delay_cost() == 660  # weight=5, raw=132
 
     def test_unscheduled_optional(self, test01):
         assert test01.unscheduled_optional_cost() == 1200  # weight=150, raw=8
@@ -152,10 +154,7 @@ class TestViolationBranches:
     def test_nurse_presence_violation_detected(self, instance):
         sched = Schedule(instance)
         nurse = instance.nurses[0]
-        non_working = next(
-            s for s in range(instance.total_shifts)
-            if s not in nurse.shift_indices
-        )
+        non_working = next(s for s in range(instance.total_shifts) if s not in nurse.shift_indices)
         sched.assign_nurse(nurse.idx, non_working, 0)
         assert sched.nurse_presence_violation() == 1
 
@@ -174,9 +173,7 @@ class TestOccupantSkillDeficit:
     def test_occupant_skill_deficit_counted(self, instance):
         # Find an occupant with at least one positive skill requirement
         occ = next(o for o in instance.occupants if any(o.skill_level_required))
-        shift_with_req = next(
-            s for s, req in enumerate(occ.skill_level_required) if req > 0
-        )
+        shift_with_req = next(s for s, req in enumerate(occ.skill_level_required) if req > 0)
         # Assign a nurse with skill_level 0 to the occupant's room in that shift
         sched = Schedule(instance)
         nurse = next(n for n in instance.nurses if n.skill_level == 0)
@@ -191,18 +188,29 @@ class TestBreakdownMethods:
     def test_cost_breakdown_keys(self, test01):
         bd = test01.cost_breakdown()
         assert set(bd.keys()) == {
-            "RoomAgeMix", "RoomSkillLevel", "ContinuityOfCare",
-            "ExcessiveNurseWorkload", "OpenOperatingTheater",
-            "SurgeonTransfer", "PatientDelay", "ElectiveUnscheduledPatients",
+            "RoomAgeMix",
+            "RoomSkillLevel",
+            "ContinuityOfCare",
+            "ExcessiveNurseWorkload",
+            "OpenOperatingTheater",
+            "SurgeonTransfer",
+            "PatientDelay",
+            "ElectiveUnscheduledPatients",
         }
         assert sum(bd.values()) == test01.total_cost()
 
     def test_violation_breakdown_keys(self, test01):
         bd = test01.violation_breakdown()
         assert set(bd.keys()) == {
-            "RoomGenderMix", "PatientRoomCompatibility", "SurgeonOvertime",
-            "OperatingTheaterOvertime", "MandatoryUnscheduledPatients",
-            "AdmissionDay", "RoomCapacity", "NursePresence", "UncoveredRoom",
+            "RoomGenderMix",
+            "PatientRoomCompatibility",
+            "SurgeonOvertime",
+            "OperatingTheaterOvertime",
+            "MandatoryUnscheduledPatients",
+            "AdmissionDay",
+            "RoomCapacity",
+            "NursePresence",
+            "UncoveredRoom",
         }
         assert sum(bd.values()) == 0
 
