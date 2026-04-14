@@ -64,18 +64,18 @@ Scoring in the finalist phase: ranks are computed per trial and averaged across 
 ## Architecture
 
 ```
-src/main.py          — CLI entry point; parses args, loads instance JSON, dispatches solver
-src/solvers/         — one module per algorithm; each exposes solve(instance: dict) -> dict
-src/utils/           — shared I/O, constraint helpers, experiment runners
-tests/               — pytest tests mirroring src/ structure
-data/instances/      — 30 competition (i01–i30) + 10 test (test01–test10) instance JSONs
-data/solutions/      — reference solutions (sol_test01–10) + solver output
-data/validation/     — validator output logs
-docs/                — problem_description.md, algorithms.md, experiments.md
-validator/           — IHTP_Validator.cc (official source) + json.hpp (nlohmann, header-only)
+src/utils/model.py      — Immutable typed dataclasses for the parsed instance (Instance, Patient, …)
+src/utils/loader.py     — load_instance(path) → Instance
+src/utils/schedule.py   — Mutable Schedule: assignment state + all 9 violation + 8 cost methods
+src/solvers/base.py     — Abstract base class Solver(ABC); all solvers must subclass it
+src/solvers/*.py        — Concrete solvers (GreedySolver, CPSolver, LocalSearchSolver)
+src/main.py             — CLI: load_instance → solver.solve() → schedule.to_solution_dict() → JSON
+tests/test_schedule.py  — 21 tests cross-checked against C++ validator output on test01
 ```
 
-Each solver module returns a dict with keys `"patients"` and `"nurses"` matching the solution JSON format documented in `docs/problem_description.md`.
+Solver contract: `solve(instance: Instance, time_limit_seconds: float, seed: int) -> Schedule`.  
+`main.py` calls `schedule.to_solution_dict()` and writes the JSON.  
+See `docs/algorithms.md` for the full architecture diagram and data model notes.
 
 ## Data Model (key facts from validator source)
 

@@ -3,16 +3,20 @@
 import random
 import time
 
+from src.solvers.base import Solver
+from src.utils.model import Instance
+from src.utils.schedule import Schedule
 
-class LocalSearchSolver:
-    def solve(self, instance: dict, time_limit_seconds: float, seed: int) -> dict:
-        rng = random.Random(seed)  # noqa: F841 — seed wired in, ready to use
+
+class LocalSearchSolver(Solver):
+    def solve(self, instance: Instance, time_limit_seconds: float, seed: int) -> Schedule:
+        rng = random.Random(seed)  # noqa: F841
         deadline = time.monotonic() + time_limit_seconds
 
         # TODO: implement LNS
-        # Stopping pattern to follow:
+        # Stopping pattern:
         #   while time.monotonic() < deadline:
         #       ...destroy and repair...
 
         _ = deadline  # suppress unused warning until implemented
-        return {"patients": [], "nurses": []}
+        return Schedule(instance)

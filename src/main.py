@@ -6,6 +6,8 @@ import sys
 import time
 from pathlib import Path
 
+from src.utils import load_instance
+
 DEFAULT_TIME_LIMIT = 580.0  # seconds — leaves headroom before the 600 s competition cutoff
 DEFAULT_SEED = 42
 
@@ -39,18 +41,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    with open(args.instance) as f:
-        instance = json.load(f)
-
+    instance = load_instance(args.instance)
     output_path = args.output or Path("data/solutions") / (args.instance.stem + "_solution.json")
 
-    print(f"Instance:   {args.instance.name}")
+    print(f"Instance:   {args.instance.name}  "
+          f"({len(instance.patients)} patients, {len(instance.nurses)} nurses, "
+          f"{instance.days} days)")
     print(f"Solver:     {args.solver}")
     print(f"Time limit: {args.time_limit} s")
     print(f"Seed:       {args.seed}")
     print(f"Output:     {output_path}")
-
-    start = time.monotonic()
 
     if args.solver == "greedy":
         from src.solvers.greedy import GreedySolver
@@ -65,14 +65,16 @@ def main() -> None:
         print(f"Unknown solver: {args.solver}", file=sys.stderr)
         sys.exit(1)
 
-    solution = solver.solve(instance, time_limit_seconds=args.time_limit, seed=args.seed)
-
+    start = time.monotonic()
+    schedule = solver.solve(instance, time_limit_seconds=args.time_limit, seed=args.seed)
     elapsed = time.monotonic() - start
-    print(f"Solved in {elapsed:.1f} s")
+
+    print(f"Solved in {elapsed:.1f} s  |  "
+          f"violations={schedule.total_violations()}  cost={schedule.total_cost()}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
-        json.dump(solution, f, indent=2)
+        json.dump(schedule.to_solution_dict(), f, indent=2)
     print(f"Solution written to {output_path}")
 
 
