@@ -44,9 +44,11 @@ def main() -> None:
     instance = load_instance(args.instance)
     output_path = args.output or Path("data/solutions") / (args.instance.stem + "_solution.json")
 
-    print(f"Instance:   {args.instance.name}  "
-          f"({len(instance.patients)} patients, {len(instance.nurses)} nurses, "
-          f"{instance.days} days)")
+    print(
+        f"Instance:   {args.instance.name}  "
+        f"({len(instance.patients)} patients, {len(instance.nurses)} nurses, "
+        f"{instance.days} days)"
+    )
     print(f"Solver:     {args.solver}")
     print(f"Time limit: {args.time_limit} s")
     print(f"Seed:       {args.seed}")
@@ -54,12 +56,15 @@ def main() -> None:
 
     if args.solver == "greedy":
         from src.solvers.greedy import GreedySolver
+
         solver = GreedySolver()
     elif args.solver == "cp":
         from src.solvers.cp import CPSolver
+
         solver = CPSolver()
     elif args.solver == "local_search":
         from src.solvers.local_search import LocalSearchSolver
+
         solver = LocalSearchSolver()
     else:
         print(f"Unknown solver: {args.solver}", file=sys.stderr)
@@ -69,8 +74,10 @@ def main() -> None:
     schedule = solver.solve(instance, time_limit_seconds=args.time_limit, seed=args.seed)
     elapsed = time.monotonic() - start
 
-    print(f"Solved in {elapsed:.1f} s  |  "
-          f"violations={schedule.total_violations()}  cost={schedule.total_cost()}")
+    print(
+        f"Solved in {elapsed:.1f} s  |  "
+        f"violations={schedule.total_violations()}  cost={schedule.total_cost()}"
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:

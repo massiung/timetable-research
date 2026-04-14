@@ -6,8 +6,15 @@ import json
 from pathlib import Path
 
 from .model import (
-    Instance, Weights,
-    Occupant, Patient, Surgeon, OperatingTheater, Room, WorkingShift, Nurse,
+    Instance,
+    Nurse,
+    Occupant,
+    OperatingTheater,
+    Patient,
+    Room,
+    Surgeon,
+    Weights,
+    WorkingShift,
 )
 
 
@@ -59,40 +66,44 @@ def load_instance(path: Path | str) -> Instance:
 
     occupants: list[Occupant] = []
     for i, o in enumerate(data["occupants"]):
-        occupants.append(Occupant(
-            idx=i,
-            id=o["id"],
-            gender=o["gender"],
-            age_group=age_group_idx[o["age_group"]],
-            length_of_stay=o["length_of_stay"],
-            workload_produced=list(o["workload_produced"]),
-            skill_level_required=list(o["skill_level_required"]),
-            room=room_idx[o["room_id"]],
-        ))
+        occupants.append(
+            Occupant(
+                idx=i,
+                id=o["id"],
+                gender=o["gender"],
+                age_group=age_group_idx[o["age_group"]],
+                length_of_stay=o["length_of_stay"],
+                workload_produced=list(o["workload_produced"]),
+                skill_level_required=list(o["skill_level_required"]),
+                room=room_idx[o["room_id"]],
+            )
+        )
 
     patients: list[Patient] = []
     patient_idx: dict[str, int] = {}
     for i, p in enumerate(data["patients"]):
         mandatory = bool(p["mandatory"])
         due = p["surgery_due_day"] if mandatory else -1
-        patients.append(Patient(
-            idx=i,
-            id=p["id"],
-            mandatory=mandatory,
-            gender=p["gender"],
-            age_group=age_group_idx[p["age_group"]],
-            length_of_stay=p["length_of_stay"],
-            surgery_release_day=p["surgery_release_day"],
-            surgery_due_day=due,
-            last_possible_day=due if mandatory else days - 1,
-            surgery_duration=p["surgery_duration"],
-            surgeon=surgeon_idx[p["surgeon_id"]],
-            incompatible_rooms=frozenset(
-                room_idx[r] for r in (p["incompatible_room_ids"] or [])
-            ),
-            workload_produced=list(p["workload_produced"]),
-            skill_level_required=list(p["skill_level_required"]),
-        ))
+        patients.append(
+            Patient(
+                idx=i,
+                id=p["id"],
+                mandatory=mandatory,
+                gender=p["gender"],
+                age_group=age_group_idx[p["age_group"]],
+                length_of_stay=p["length_of_stay"],
+                surgery_release_day=p["surgery_release_day"],
+                surgery_due_day=due,
+                last_possible_day=due if mandatory else days - 1,
+                surgery_duration=p["surgery_duration"],
+                surgeon=surgeon_idx[p["surgeon_id"]],
+                incompatible_rooms=frozenset(
+                    room_idx[r] for r in (p["incompatible_room_ids"] or [])
+                ),
+                workload_produced=list(p["workload_produced"]),
+                skill_level_required=list(p["skill_level_required"]),
+            )
+        )
         patient_idx[p["id"]] = i
 
     nurses: list[Nurse] = []
@@ -106,23 +117,27 @@ def load_instance(path: Path | str) -> Instance:
             day = int(ws["day"])
             s_within = shift_idx[ws["shift"]]
             global_s = day * shifts_per_day + s_within
-            working_shifts.append(WorkingShift(
-                global_shift=global_s,
-                day=day,
-                shift_within_day=s_within,
-                max_load=ws["max_load"],
-            ))
+            working_shifts.append(
+                WorkingShift(
+                    global_shift=global_s,
+                    day=day,
+                    shift_within_day=s_within,
+                    max_load=ws["max_load"],
+                )
+            )
             shift_indices_set.add(global_s)
             max_load_by_shift[global_s] = ws["max_load"]
             nurses_by_shift[global_s].append(i)
-        nurses.append(Nurse(
-            idx=i,
-            id=n["id"],
-            skill_level=n["skill_level"],
-            working_shifts=working_shifts,
-            shift_indices=frozenset(shift_indices_set),
-            max_load_by_shift=max_load_by_shift,
-        ))
+        nurses.append(
+            Nurse(
+                idx=i,
+                id=n["id"],
+                skill_level=n["skill_level"],
+                working_shifts=working_shifts,
+                shift_indices=frozenset(shift_indices_set),
+                max_load_by_shift=max_load_by_shift,
+            )
+        )
         nurse_idx[n["id"]] = i
 
     # Precompute occupant presence per room per day

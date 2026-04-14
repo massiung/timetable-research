@@ -37,6 +37,23 @@ Validator output: first prints 9 hard-constraint **violation** counts (all must 
 
 Reference score for test01 reference solution: **3177** (0 violations).
 
+## Code Quality
+
+All four checks must pass before committing. Run them in this order:
+
+```bash
+uv run ruff format src tests          # auto-fix formatting
+uv run ruff check src tests           # lint (E, F, I rules)
+uv run mypy src/ --exclude src/main.py  # strict type checking
+uv run pytest                         # tests + 100% coverage (enforced)
+```
+
+**Rules:**
+- `src/main.py` is excluded from both type-checking and coverage (CLI entry point).
+- Coverage is enforced at 100% via `--cov-fail-under=100` in `pyproject.toml`. Every new code path needs a test.
+- `mypy` runs in strict mode. New code must be fully annotated. Use `dict[str, Any]` for JSON-shaped dicts at serialisation boundaries.
+- CI (`.github/workflows/ci.yml`) runs all four checks on every push and PR to `main`.
+
 ## Runtime Constraints
 
 These are hard limits imposed by the competition evaluation and must be respected by every solver:

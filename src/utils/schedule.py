@@ -16,6 +16,8 @@ Design notes
 
 from __future__ import annotations
 
+from typing import Any
+
 from .model import Instance
 
 
@@ -113,7 +115,8 @@ class Schedule:
     def patient_room_compatibility(self) -> int:
         inst = self.instance
         return sum(
-            1 for p, r in enumerate(self.patient_room)
+            1
+            for p, r in enumerate(self.patient_room)
             if r != -1 and r in inst.patients[p].incompatible_rooms
         )
 
@@ -132,7 +135,9 @@ class Schedule:
     def operating_theater_overtime(self) -> int:
         inst = self.instance
         load: list[list[int]] = [[0] * inst.days for _ in inst.operating_theaters]
-        for p, (d, _r, t) in enumerate(zip(self.patient_day, self.patient_room, self.patient_theater)):
+        for p, (d, _r, t) in enumerate(
+            zip(self.patient_day, self.patient_room, self.patient_theater)
+        ):
             if d != -1:
                 load[t][d] += inst.patients[p].surgery_duration
         return sum(
@@ -143,18 +148,18 @@ class Schedule:
 
     def mandatory_unscheduled(self) -> int:
         return sum(
-            1 for p, pat in enumerate(self.instance.patients)
+            1
+            for p, pat in enumerate(self.instance.patients)
             if pat.mandatory and self.patient_day[p] == -1
         )
 
     def admission_day_violation(self) -> int:
         inst = self.instance
         return sum(
-            1 for p, d in enumerate(self.patient_day)
-            if d != -1 and (
-                d < inst.patients[p].surgery_release_day
-                or d > inst.patients[p].last_possible_day
-            )
+            1
+            for p, d in enumerate(self.patient_day)
+            if d != -1
+            and (d < inst.patients[p].surgery_release_day or d > inst.patients[p].last_possible_day)
         )
 
     def room_capacity_violation(self) -> int:
@@ -303,7 +308,9 @@ class Schedule:
         """Number of (theater, day) pairs where the theater is used, weighted."""
         inst = self.instance
         used: list[list[bool]] = [[False] * inst.days for _ in inst.operating_theaters]
-        for p, (d, _r, t) in enumerate(zip(self.patient_day, self.patient_room, self.patient_theater)):
+        for p, (d, _r, t) in enumerate(
+            zip(self.patient_day, self.patient_room, self.patient_theater)
+        ):
             if d != -1:
                 used[t][d] = True
         raw = sum(v for row in used for v in row)
@@ -312,16 +319,14 @@ class Schedule:
     def surgeon_transfer_cost(self) -> int:
         """(distinct_theaters - 1) per surgeon per day when > 1, weighted."""
         inst = self.instance
-        seen: list[list[set[int]]] = [
-            [set() for _ in range(inst.days)] for _ in inst.surgeons
-        ]
-        for p, (d, _r, t) in enumerate(zip(self.patient_day, self.patient_room, self.patient_theater)):
+        seen: list[list[set[int]]] = [[set() for _ in range(inst.days)] for _ in inst.surgeons]
+        for p, (d, _r, t) in enumerate(
+            zip(self.patient_day, self.patient_room, self.patient_theater)
+        ):
             if d != -1:
                 seen[inst.patients[p].surgeon][d].add(t)
         raw = sum(
-            max(0, len(seen[s][d]) - 1)
-            for s in range(len(inst.surgeons))
-            for d in range(inst.days)
+            max(0, len(seen[s][d]) - 1) for s in range(len(inst.surgeons)) for d in range(inst.days)
         )
         return raw * inst.weights.surgeon_transfer
 
@@ -339,7 +344,8 @@ class Schedule:
         """Count of optional patients not admitted, weighted."""
         inst = self.instance
         raw = sum(
-            1 for p, pat in enumerate(inst.patients)
+            1
+            for p, pat in enumerate(inst.patients)
             if not pat.mandatory and self.patient_day[p] == -1
         )
         return raw * inst.weights.unscheduled_optional
@@ -386,37 +392,41 @@ class Schedule:
     # Serialisation
     # ------------------------------------------------------------------
 
-    def to_solution_dict(self) -> dict:
+    def to_solution_dict(self) -> dict[str, Any]:
         inst = self.instance
-        patients_out = []
+        patients_out: list[dict[str, Any]] = []
         for p, pat in enumerate(inst.patients):
             d = self.patient_day[p]
             if d == -1:
                 patients_out.append({"id": pat.id, "admission_day": "none"})
             else:
-                patients_out.append({
-                    "id": pat.id,
-                    "admission_day": d,
-                    "room": inst.rooms[self.patient_room[p]].id,
-                    "operating_theater": inst.operating_theaters[self.patient_theater[p]].id,
-                })
+                patients_out.append(
+                    {
+                        "id": pat.id,
+                        "admission_day": d,
+                        "room": inst.rooms[self.patient_room[p]].id,
+                        "operating_theater": inst.operating_theaters[self.patient_theater[p]].id,
+                    }
+                )
         nurses_out = []
         for n, nurse in enumerate(inst.nurses):
             assignments = []
             for ws in nurse.working_shifts:
                 s = ws.global_shift
                 rooms = self.nurse_shift_rooms[n][s]
-                assignments.append({
-                    "day": ws.day,
-                    "shift": inst.shift_names[ws.shift_within_day],
-                    "rooms": [inst.rooms[r].id for r in rooms],
-                })
+                assignments.append(
+                    {
+                        "day": ws.day,
+                        "shift": inst.shift_names[ws.shift_within_day],
+                        "rooms": [inst.rooms[r].id for r in rooms],
+                    }
+                )
             if assignments:
                 nurses_out.append({"id": nurse.id, "assignments": assignments})
         return {"patients": patients_out, "nurses": nurses_out}
 
     @classmethod
-    def from_solution_dict(cls, instance: Instance, data: dict) -> Schedule:
+    def from_solution_dict(cls, instance: Instance, data: dict[str, Any]) -> Schedule:
         schedule = cls(instance)
         for entry in data.get("patients", []):
             if entry.get("admission_day") == "none":
