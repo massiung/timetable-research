@@ -120,3 +120,16 @@ Use `/score` to run the validator on any instance/solution pair and automaticall
 - `docs/problem_description.md` — update if problem spec changes.
 - `docs/algorithms.md` — log every approach explored (including failures).
 - `docs/experiments.md` — record every scored run: instance, solver, config, score, notes.
+
+## Keeping This File Current
+
+After completing any task, ask: **does CLAUDE.md still accurately describe the repo?**
+
+Update it when:
+- A new solver, module, or utility is added (Architecture section)
+- A build/run/test command changes (Commands section)
+- A new non-obvious data model invariant is discovered (Data Model section)
+- A quality rule is added, relaxed, or tightened (Code Quality section)
+- A new skill is created or an existing one changes behaviour (Scoring Workflow / skills)
+
+Do **not** add: implementation details already visible from reading the code, per-PR changelogs, or anything derivable from `git log`.
