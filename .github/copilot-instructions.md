@@ -1,0 +1,10 @@
+# Copilot Instructions
+
+See **AGENTS.md** at the repo root for the full reference: commands, architecture, code quality rules, runtime constraints, and data model.
+
+## Key reminders
+
+- Run all four quality checks before committing: `ruff format`, `ruff check`, `mypy`, `pytest`.
+- 100% test coverage is enforced — every new code path needs a test.
+- All solvers must subclass `Solver(ABC)` from `src/solvers/base.py` and accept `time_limit_seconds` and `seed` parameters.
+- Solver output files (`*_solution.json`) are gitignored; do not commit them.
