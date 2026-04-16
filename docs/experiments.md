@@ -10,4 +10,6 @@ Track results per instance and solver configuration here.
 
 ## Results
 
-_Populate as experiments are run._
+| Date | Instance | Solver | Config | Violations | Score | Notes |
+|------|----------|--------|--------|------------|-------|-------|
+| 2026-04-16 | test01 | greedy | default (earliest, first_available, consolidate, highest_skill) | 0 | 4682 | First feasible run; reference solution is 3177 |

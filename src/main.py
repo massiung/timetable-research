@@ -70,19 +70,32 @@ def main() -> None:
         print(f"Unknown solver: {args.solver}", file=sys.stderr)
         sys.exit(1)
 
+    print("Solving…")
     start = time.monotonic()
     schedule = solver.solve(instance, time_limit_seconds=args.time_limit, seed=args.seed)
     elapsed = time.monotonic() - start
 
-    print(
-        f"Solved in {elapsed:.1f} s  |  "
-        f"violations={schedule.total_violations()}  cost={schedule.total_cost()}"
-    )
+    violations = schedule.total_violations()
+    cost = schedule.total_cost()
+    feasible_tag = "FEASIBLE" if violations == 0 else "INFEASIBLE"
+    print(f"Solved in {elapsed:.1f} s  |  violations={violations}  cost={cost}  [{feasible_tag}]")
+
+    if violations > 0:
+        print("\nWARNING: solution has hard-constraint violations and cannot be submitted.")
+        print("Violation breakdown:")
+        for name, count in schedule.violation_breakdown().items():
+            if count:
+                print(f"  {name}: {count}")
+    else:
+        print("Cost breakdown:")
+        for name, val in schedule.cost_breakdown().items():
+            if val:
+                print(f"  {name}: {val}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(schedule.to_solution_dict(), f, indent=2)
-    print(f"Solution written to {output_path}")
+    print(f"\nSolution written to {output_path}")
 
 
 if __name__ == "__main__":
