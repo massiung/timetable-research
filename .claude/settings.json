@@ -8,7 +8,8 @@
       "Bash(./validator/IHTP_Validator *)",
       "Bash(git *)",
       "Bash(ls *)",
-      "Bash(ls)"
+      "Bash(ls)",
+      "Bash(uv run python scripts/benchmark.py *)"
     ]
   }
 }
