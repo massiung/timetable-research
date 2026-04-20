@@ -110,11 +110,51 @@ The 2nd-place team (SDU-IMADA, University of Southern Denmark) published their f
 
 Their approach uses local search / large neighbourhood search. Study this before designing new solvers.
 
+## Experiment Workflow
+
+Each algorithm tweak is an **experiment** with its own branch, doc page, and row in `results.tsv`.
+
+### Branch naming
+`exp/<slug>` — short, kebab-case, no date prefix (e.g., `exp/greedy-baseline`, `exp/ls-swap-v1`).  
+All `exp/*` branches are pushed to GitHub — this preserves the code for every experiment, including discards.  
+`main` always receives the experiment doc and `results.tsv` row after `/benchmark`, regardless of keep/discard.  
+Only solver code changes from `discard` experiments stay off `main`.
+
+### Slash commands
+| Command | What it does |
+|---------|-------------|
+| `/exp <slug>` | Create branch `exp/<slug>`, assign next exp_id, stub `docs/experiments/expNNN_<slug>.md` |
+| `/benchmark` | Run solver on i01–i30, fill experiment doc, append row to `results.tsv` |
+| `/score` | Validate a single instance/solution, update experiment doc row |
+
+### `results.tsv` (root level, tab-separated)
+Columns: `exp_id`, `commit`, `date`, `branch`, `solver`, `avg_cost`, `n_instances`, `avg_time_s`, `status`, `description`  
+- `avg_cost` — mean cost over feasible instances from i01–i30 (lower is better).  
+- `status` — `keep` | `discard` | `crash` | `pending`.  
+- Written by `/benchmark` after a complete 30-instance run.
+
+### Per-experiment docs
+`docs/experiments/expNNN_<slug>.md` — created by `/exp`, filled by `/benchmark`.  
+Sections: Hypothesis (pre-run), Changes, per-instance Results table, Conclusion (keep/discard + learning).
+
+### Learnings
+`docs/learnings.md` — append-only. Add a section for any non-obvious insight; reference the exp_id.
+
+### Timing
+`main.py` prints `elapsed_s: <float>` to stdout after every solve. `/benchmark` captures this to populate `avg_time_s`.
+
+### Evaluation set
+- **Benchmark instances:** `i01`–`i30` (used for `avg_cost` and `avg_time_s`).
+- **Test instances:** `test01`–`test10` (excluded from experiment averages; use only for spot-checking).
+
 ## Docs Maintenance
 
 - `docs/problem_description.md` — update if problem spec changes.
 - `docs/algorithms.md` — log every approach explored (including failures).
-- `docs/experiments.md` — record every scored run: instance, solver, config, score, notes.
+- `docs/experiments.md` — quick-reference table of every scored run (updated by `/score`).
+- `docs/experiments/` — per-experiment pages (one per exp_id, created by `/exp`).
+- `docs/learnings.md` — append-only insights log.
+- `results.tsv` — machine-readable experiment summary (updated by `/benchmark`).
 - Solver output files (`*_solution.json`) are gitignored; reference solutions (`sol_test*.json`) are committed.
 
 ## Keeping This File Current

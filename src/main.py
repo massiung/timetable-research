@@ -79,6 +79,7 @@ def main() -> None:
     cost = schedule.total_cost()
     feasible_tag = "FEASIBLE" if violations == 0 else "INFEASIBLE"
     print(f"Solved in {elapsed:.1f} s  |  violations={violations}  cost={cost}  [{feasible_tag}]")
+    print(f"elapsed_s: {elapsed:.2f}")
 
     if violations > 0:
         print("\nWARNING: solution has hard-constraint violations and cannot be submitted.")
