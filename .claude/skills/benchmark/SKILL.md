@@ -23,18 +23,17 @@ Run the current solver on all 30 non-test instances (`i01`–`i30`), collect res
    g++ -O2 -std=c++17 -o validator/IHTP_Validator validator/IHTP_Validator.cc
    ```
 
-4. **Run the solver on each instance i01–i30** sequentially:
+4. **Run the benchmark script** (single command, one approval):
    ```bash
-   uv run python -m src.main \
-     --instance data/instances/i<NN>.json \
-     --solver <solver> \
-     --output data/solutions/i<NN>_solution.json \
-     --time-limit 60
+   uv run python scripts/benchmark.py --solver <solver> --time-limit 60
    ```
    For benchmarking, use `--time-limit 60` (1 minute per instance) unless the user specifies otherwise.
-   After each run, capture:
-   - `elapsed_s` — grep for `elapsed_s: ` in stdout.
-   - Then run the validator and extract `Total violations` and `Total cost`.
+   The script runs all 30 instances sequentially, calls the validator after each, and streams a TSV row per instance to stdout:
+   ```
+   instance  cost  violations  elapsed_s  status
+   i01       4123  0           11.2       ok
+   ```
+   The final `summary` line contains `avg_cost`, `n_feasible`, and `avg_time_s`.
 
 5. **Fill in the experiment doc** `docs/experiments/expNNN_<slug>.md`:
    - Update the Results table row-by-row (instance, Cost, Violations, Time (s)).
