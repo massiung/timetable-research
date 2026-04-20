@@ -7,11 +7,14 @@
 
 ## Hypothesis
 
-<!-- What do you expect to improve and why? -->
+Implementing LNS on top of the greedy construction should lower average cost significantly and fix the infeasible i16 instance. The destroy-repair cycle allows the search to escape greedy's locally-optimal but globally-suboptimal assignments. With 580 s of budget, even a simple random-destroy + best-insertion repair should explore enough diverse solutions to beat the greedy baseline on most instances.
+
+Three destroy operators: random removal, related removal (same surgeon), and high-delay removal (patients admitted latest relative to their release day). Repair scores placements by `delay * w_delay + theater_opening * w_theater` to target the two highest-cost drivers visible without a full delta evaluation.
 
 ## Changes vs. Previous Kept Experiment
 
-<!-- Which files changed and what did they do? -->
+- `src/solvers/local_search.py`: full LNS implementation replacing the placeholder stub.
+- `tests/test_local_search.py`: new test file with 100% coverage of all LNS helpers.
 
 ## Results
 
