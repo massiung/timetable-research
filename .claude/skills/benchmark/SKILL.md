@@ -83,6 +83,7 @@ Run the current solver on all 30 non-test instances (`i01`–`i30`), collect res
 ## Notes
 
 - Use `--time-limit 60` for benchmark runs to keep total time under ~30 minutes.
+- Validator output uses `=` not `:` — `Total violations = 0`, `Total cost = <n>`. The benchmark script handles this correctly.
 - Infeasible solutions (violations > 0) are excluded from `avg_cost` but included in `avg_time_s`.
 - Instances `test01`–`test10` are never included in benchmarks.
 - If a run crashes (non-zero exit code), record `crash` for that instance and continue.

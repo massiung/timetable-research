@@ -47,6 +47,7 @@ Run the IHTP validator on an instance/solution pair, capture timing, and record 
 ## Notes
 
 - The validator prints violations first (9 rows), then weighted costs (8 rows).
+- Output uses `=` not `:` — parse `Total violations = 0` and `Total cost = <n>`.
 - A feasible solution has `Total violations = 0`.
 - Lower total cost is better among feasible solutions.
 - Reference score for `test01` reference solution: **3177** (0 violations).
