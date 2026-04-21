@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import sys
 import time
 from pathlib import Path
@@ -35,11 +36,22 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_SEED,
         help=f"Random seed (default: {DEFAULT_SEED})",
     )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level for solver internals (default: WARNING)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(name)s %(levelname)s %(message)s",
+        stream=sys.stderr,
+    )
 
     instance = load_instance(args.instance)
     output_path = args.output or Path("data/solutions") / (args.instance.stem + "_solution.json")
