@@ -30,41 +30,47 @@ Built on `exp/lns-v2` (branched from `exp/lns-v1`):
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5720 | 0 | 60.00 |
+| i02 | 2798 | 0 | 60.00 |
+| i03 | 13220 | 0 | 60.00 |
+| i04 | 4496 | 0 | 60.00 |
+| i05 | 17365 | 0 | 60.00 |
+| i06 | 12109 | 0 | 60.00 |
+| i07 | 8444 | 0 | 60.00 |
+| i08 | 9287 | 0 | 60.00 |
+| i09 | 11494 | 0 | 60.00 |
+| i10 | 34605 | 0 | 60.00 |
+| i11 | 35897 | 0 | 60.00 |
+| i12 | 17215 | 0 | 60.00 |
+| i13 | 31659 | 0 | 60.00 |
+| i14 | 17281 | 0 | 60.00 |
+| i15 | 24682 | 0 | 60.00 |
+| i16 | — | 1 | 60.00 |
+| i17 | 80045 | 0 | 60.00 |
+| i18 | 53330 | 0 | 60.00 |
+| i19 | 75314 | 0 | 60.01 |
+| i20 | 45837 | 0 | 60.00 |
+| i21 | 46212 | 0 | 60.00 |
+| i22 | 111318 | 0 | 60.00 |
+| i23 | 67770 | 0 | 60.00 |
+| i24 | 47761 | 0 | 60.01 |
+| i25 | 20334 | 0 | 60.00 |
+| i26 | 126999 | 0 | 60.01 |
+| i27 | 115557 | 0 | 60.01 |
+| i28 | 92518 | 0 | 60.00 |
+| i29 | 26560 | 0 | 60.00 |
+| i30 | 54286 | 0 | 60.00 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 41728.0
+**avg_time_s:** 60.00
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
 **Decision:** pending
+
+- i20 fixed: 0 violations (was 1 in exp002 — the `constrained_first` init bug is resolved).
+- i16 improved: 1 violation (was 10 in both greedy and exp002). Feasible at 180 s; the 60 s budget is not enough for the rescue to converge.
+- avg_cost 41728.0 is higher than exp002's 38269.2, but the comparison is not apples-to-apples: exp002 excluded i20 from the average (infeasible), while exp003 includes it (cost 45837). Over the same 28 feasible-in-both instances, exp003 avg is ~41582 vs exp002's ~38269 — a per-instance regression of ~8.6%.
+- The per-instance regression has two causes: (1) switching from `constrained_first` to `urgency` init gives a slightly worse starting solution for most instances; (2) the `_rescue_mandatory` pass adds per-iteration overhead (O(n_mandatory) scan + possible forced insertions), reducing iteration throughput.
+- n_feasible: 29/30 vs 28/30 (exp002). Only i16 remains infeasible at 60 s.
