@@ -65,16 +65,14 @@ class LocalSearchSolver(Solver):
         rng = random.Random(seed)
         deadline = time.monotonic() + time_limit_seconds
 
-        greedy = GreedySolver(GreedyConfig())
+        greedy = GreedySolver(GreedyConfig(patient_sort_key="constrained_first"))
         current = greedy.solve(instance, time_limit_seconds, seed)
         best = _clone(current)
         best_obj = _objective(best, self.config.violation_penalty)
 
-        n_undef = sum(
-            1
-            for p in range(len(instance.patients))
-            if current.patient_day[p] == -1 and instance.patients[p].mandatory
-        )
+        n_p = len(instance.patients)
+        mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
+        n_undef = sum(1 for p in mandatory_set if current.patient_day[p] == -1)
         _log.info(
             "init: violations=%d cost=%d unscheduled_mandatory=%d",
             best.total_violations(),
@@ -82,7 +80,10 @@ class LocalSearchSolver(Solver):
             n_undef,
         )
 
-        n_p = len(instance.patients)
+        # True when best has at least one unscheduled mandatory patient.
+        # Used to skip the O(n) rescue scan on iterations where it cannot help.
+        best_infeasible = n_undef > 0
+
         cfg = self.config
         iters = 0
 
@@ -99,7 +100,12 @@ class LocalSearchSolver(Solver):
                 removed = _destroy_high_delay(current, k, instance)
 
             _repair_patients(current, removed, greedy, instance)
-            rescued = _rescue_mandatory(current, greedy, instance)
+            # Skip rescue when best is feasible and no mandatory patients were destroyed —
+            # repair cannot leave new unscheduled mandatories in that case.
+            if best_infeasible or (mandatory_set & set(removed)):
+                rescued = _rescue_mandatory(current, greedy, instance)
+            else:
+                rescued = 0
             _clear_nurses(current, instance)
             greedy._assign_nurses(instance, current)
 
@@ -107,6 +113,7 @@ class LocalSearchSolver(Solver):
             if obj < best_obj:
                 best = _clone(current)
                 best_obj = obj
+                best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
                 _log.debug(
                     "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                     iters,
