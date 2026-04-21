@@ -1,4 +1,4 @@
 exp_id	commit	date	branch	solver	avg_cost	n_instances	avg_time_s	status	description
 exp001	54394da	2026-04-20	exp/greedy-baseline	greedy	43592.3	30	0.00	keep	Default GreedySolver baseline; 29/30 feasible, i16 infeasible
 exp002	666675a	2026-04-20	exp/lns-v1	local_search	38269.2	30	60.00	discard	LNS v1: random/related/high_delay destroy + best-insertion repair; 28/30 feasible
-exp003	5aed098	2026-04-21	exp/lns-v2	local_search	41728.0	30	60.00	pending	LNS v2: fix greedy init + mandatory rescue w/ forced eviction; 29/30 feasible
+exp003	5aed098	2026-04-21	exp/lns-v2	local_search	41728.0	30	60.00	keep	LNS v2: fix greedy init + mandatory rescue w/ forced eviction; 29/30 feasible
