@@ -23,6 +23,7 @@ from src.solvers.local_search import (
     _compute_surgeon_load,
     _compute_theater_load,
     _copy_into,
+    _destroy_blocking_mandatory,
     _destroy_high_delay,
     _destroy_random,
     _destroy_related,
@@ -58,6 +59,7 @@ class TestLNSConfig:
         assert cfg.max_destroy_ratio == 0.30
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
+        assert cfg.lahc_history_length == 100
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -283,6 +285,37 @@ class TestDestroyHighDelay:
             assert remaining_delays[0] <= delays_before[0] or len(remaining_delays) < len(
                 delays_before
             )
+
+
+# ---------------------------------------------------------------------------
+# _destroy_blocking_mandatory
+# ---------------------------------------------------------------------------
+
+
+class TestDestroyBlockingMandatory:
+    def test_fallback_when_all_placed(self, instance, greedy_schedule) -> None:
+        sched = _clone(greedy_schedule)
+        mandatory_set = frozenset(
+            p for p in range(len(instance.patients)) if instance.patients[p].mandatory
+        )
+        rng = random.Random(0)
+        removed = _destroy_blocking_mandatory(sched, 3, rng, instance, mandatory_set)
+        assert 1 <= len(removed) <= 3
+        for p in removed:
+            assert sched.patient_day[p] == -1
+
+    def test_targets_blocking_when_infeasible(self, instance, greedy_schedule) -> None:
+        sched = _clone(greedy_schedule)
+        mandatory_set = frozenset(
+            p for p in range(len(instance.patients)) if instance.patients[p].mandatory
+        )
+        target = next(p for p in mandatory_set if sched.patient_day[p] != -1)
+        sched.unassign_patient(target)
+        rng = random.Random(0)
+        removed = _destroy_blocking_mandatory(sched, 5, rng, instance, mandatory_set)
+        assert len(removed) > 0
+        for p in removed:
+            assert sched.patient_day[p] == -1
 
 
 # ---------------------------------------------------------------------------

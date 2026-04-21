@@ -15,9 +15,11 @@ reassigned from scratch (greedy) after every repair.
 After repair, a mandatory-rescue pass attempts to place any unscheduled mandatory
 patients, falling back to forced eviction of non-mandatory patients when needed.
 
-Acceptance: keep the new solution if its weighted objective
-  violations * PENALTY + total_cost
-is strictly lower than the current best.
+Acceptance: Late Acceptance Hill Climbing (LAHC).  Accept the candidate if
+  f(candidate) <= history[h]
+where history[h] is the objective seen L steps ago (L = LNSConfig.lahc_history_length).
+history[h] is always updated to f(candidate) regardless of acceptance.  When the
+candidate is rejected the working solution is reset to the global best.
 
 Logging: uses the standard ``logging`` module at level INFO (iteration summaries)
 and DEBUG (per-iteration detail).  Enable with::
@@ -55,6 +57,7 @@ class LNSConfig:
     max_destroy_ratio: float = 0.30
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
     violation_penalty: int = 1_000_000
+    lahc_history_length: int = 100
 
 
 class LocalSearchSolver(Solver):
@@ -80,30 +83,40 @@ class LocalSearchSolver(Solver):
             n_undef,
         )
 
-        # True when best has at least one unscheduled mandatory patient.
-        # Used to skip the O(n) rescue scan on iterations where it cannot help.
+        # Track working solution's infeasibility separately from best's so that
+        # LAHC-accepted non-best solutions still get the correct rescue-skip treatment.
         best_infeasible = n_undef > 0
+        current_infeasible = best_infeasible
 
         cfg = self.config
+        # LAHC: accept candidate if obj ≤ history[h]; always update history with candidate obj.
+        L = cfg.lahc_history_length
+        history: list[int] = [best_obj] * L
+        h = 0
         iters = 0
 
         while time.monotonic() < deadline:
             ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
             k = max(1, int(ratio * n_p))
-            op: DestroyOp = rng.choice(cfg.destroy_ops)
+
+            # Add blocking destroy to rotation when working solution has unscheduled mandatories.
+            ops: list[str] = [*cfg.destroy_ops, "blocking"] if current_infeasible else list(cfg.destroy_ops)
+            op: str = rng.choice(ops)
 
             if op == "random":
                 removed = _destroy_random(current, k, rng, instance)
             elif op == "related":
                 removed = _destroy_related(current, k, rng, instance)
-            else:
+            elif op == "high_delay":
                 removed = _destroy_high_delay(current, k, instance)
+            else:
+                removed = _destroy_blocking_mandatory(current, k, rng, instance, mandatory_set)
 
             _repair_patients(current, removed, greedy, instance)
-            # Skip rescue when best is feasible and no mandatory patients were destroyed —
-            # repair cannot leave new unscheduled mandatories in that case.
-            if best_infeasible or (mandatory_set & set(removed)):
+            # Skip rescue when working solution is feasible and no mandatory was destroyed.
+            if current_infeasible or (mandatory_set & set(removed)):
                 rescued = _rescue_mandatory(current, greedy, instance)
+                current_infeasible = any(current.patient_day[p] == -1 for p in mandatory_set)
             else:
                 rescued = 0
             _clear_nurses(current, instance)
@@ -113,7 +126,7 @@ class LocalSearchSolver(Solver):
             if obj < best_obj:
                 best = _clone(current)
                 best_obj = obj
-                best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
+                best_infeasible = current_infeasible
                 _log.debug(
                     "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                     iters,
@@ -123,9 +136,16 @@ class LocalSearchSolver(Solver):
                     best.total_violations(),
                     best.total_cost(),
                 )
+
+            # LAHC acceptance: keep current if candidate ≤ history[h]; else reset to best.
+            if obj <= history[h]:
+                pass
             else:
                 _copy_into(current, best)
+                current_infeasible = best_infeasible
 
+            history[h] = obj
+            h = (h + 1) % L
             iters += 1
 
         _log.info(
@@ -499,6 +519,54 @@ def _forced_insert(
     surgeon_load[pat.surgeon][day] += pat.surgery_duration
 
     return [eq for eq, _, _ in evict_info]
+
+
+def _destroy_blocking_mandatory(
+    schedule: Schedule,
+    k: int,
+    rng: random.Random,
+    instance: Instance,
+    mandatory_set: frozenset[int],
+) -> list[int]:
+    """Remove non-mandatory patients occupying an unscheduled mandatory's placement windows.
+
+    Falls back to random destroy if all mandatories are placed or no non-mandatory
+    patients occupy the target's compatible room/day windows.
+    """
+    unscheduled = [p for p in mandatory_set if schedule.patient_day[p] == -1]
+    if not unscheduled:
+        return _destroy_random(schedule, k, rng, instance)
+
+    target = rng.choice(unscheduled)
+    pat = instance.patients[target]
+
+    blocking: list[int] = []
+    seen: set[int] = set()
+    for day in range(pat.surgery_release_day, min(pat.last_possible_day + 1, instance.days)):
+        for r in range(len(instance.rooms)):
+            if r in pat.incompatible_rooms:
+                continue
+            for p in schedule._room_day_patients[r][day]:
+                if p not in seen and p not in mandatory_set:
+                    blocking.append(p)
+                    seen.add(p)
+
+    if not blocking:
+        return _destroy_random(schedule, k, rng, instance)
+
+    rng.shuffle(blocking)
+    to_remove = blocking[:k]
+    if len(to_remove) < k:
+        assigned = [
+            p for p in range(len(instance.patients))
+            if schedule.patient_day[p] != -1 and p not in seen
+        ]
+        rng.shuffle(assigned)
+        to_remove = to_remove + assigned[: k - len(to_remove)]
+
+    for p in to_remove:
+        schedule.unassign_patient(p)
+    return to_remove
 
 
 def _clear_nurses(schedule: Schedule, instance: Instance) -> None:
