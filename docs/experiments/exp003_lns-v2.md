@@ -67,10 +67,20 @@ Built on `exp/lns-v2` (branched from `exp/lns-v1`):
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** keep
 
 - i20 fixed: 0 violations (was 1 in exp002 — the `constrained_first` init bug is resolved).
 - i16 improved: 1 violation (was 10 in both greedy and exp002). Feasible at 180 s; the 60 s budget is not enough for the rescue to converge.
 - avg_cost 41728.0 is higher than exp002's 38269.2, but the comparison is not apples-to-apples: exp002 excluded i20 from the average (infeasible), while exp003 includes it (cost 45837). Over the same 28 feasible-in-both instances, exp003 avg is ~41582 vs exp002's ~38269 — a per-instance regression of ~8.6%.
 - The per-instance regression has two causes: (1) switching from `constrained_first` to `urgency` init gives a slightly worse starting solution for most instances; (2) the `_rescue_mandatory` pass adds per-iteration overhead (O(n_mandatory) scan + possible forced insertions), reducing iteration throughput.
 - n_feasible: 29/30 vs 28/30 (exp002). Only i16 remains infeasible at 60 s.
+
+## What to try next (exp004)
+
+The per-instance cost regression vs exp002 is addressable. Two ideas, in order of confidence:
+
+1. **Restore `constrained_first` init + rely on rescue for feasibility.** The `constrained_first` sort gave better initial solutions for most instances (lower cost starting point → better LNS exploration). With `_rescue_mandatory` now present, an infeasible init (like i20 with `constrained_first`) gets fixed on the first rescue pass rather than persisting. Try `GreedyConfig(patient_sort_key="constrained_first")` again and verify i20 becomes feasible via rescue.
+
+2. **Reduce rescue overhead for already-feasible instances.** Track whether the last iteration placed any mandatory patient. If not, skip the full rescue scan — a simple flag from the repair step suffices. This would cut overhead to near-zero for the 29 instances where all mandatories are placed from the start.
+
+3. **i16 targeted destroy.** i16 remains at 1 violation at 60 s because p053 needs a room for 8 consecutive days and surgeon s0 has only one feasible day (day 4) with capacity. A destroy operator that specifically targets rooms blocking p053's 8-day window on day 4 would focus the search where it matters. Alternatively, increasing the time budget to 120 s would likely resolve it (feasible at 180 s in smoke tests).
