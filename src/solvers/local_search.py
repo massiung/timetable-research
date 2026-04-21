@@ -90,14 +90,18 @@ class LocalSearchSolver(Solver):
         while time.monotonic() < deadline:
             ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
             k = max(1, int(ratio * n_p))
-            op: DestroyOp = rng.choice(cfg.destroy_ops)
+            # Add blocking destroy to rotation when current has unscheduled mandatories.
+            ops: list[str] = [*cfg.destroy_ops, "blocking"] if best_infeasible else list(cfg.destroy_ops)
+            op: str = rng.choice(ops)
 
             if op == "random":
                 removed = _destroy_random(current, k, rng, instance)
             elif op == "related":
                 removed = _destroy_related(current, k, rng, instance)
-            else:
+            elif op == "high_delay":
                 removed = _destroy_high_delay(current, k, instance)
+            else:
+                removed = _destroy_blocking_mandatory(current, k, rng, instance, mandatory_set)
 
             _repair_patients(current, removed, greedy, instance)
             # Skip rescue when best is feasible and no mandatory patients were destroyed —
@@ -499,6 +503,75 @@ def _forced_insert(
     surgeon_load[pat.surgeon][day] += pat.surgery_duration
 
     return [eq for eq, _, _ in evict_info]
+
+
+def _destroy_blocking_mandatory(
+    schedule: Schedule,
+    k: int,
+    rng: random.Random,
+    instance: Instance,
+    mandatory_set: frozenset[int],
+) -> list[int]:
+    """Remove non-mandatory patients blocking an unscheduled mandatory patient.
+
+    Targets two resource bottlenecks for the chosen unscheduled mandatory:
+      1. Room-blocking: non-mandatory patients occupying rooms in the mandatory's
+         feasible day/room windows.
+      2. Surgeon-competing: non-mandatory patients using the same surgeon on any
+         day within the mandatory's feasible surgery window.
+
+    Falls back to random destroy if all mandatories are placed or no non-mandatory
+    blocking patients are found.
+    """
+    unscheduled = [p for p in mandatory_set if schedule.patient_day[p] == -1]
+    if not unscheduled:
+        return _destroy_random(schedule, k, rng, instance)
+
+    target = rng.choice(unscheduled)
+    pat = instance.patients[target]
+
+    blocking: list[int] = []
+    seen: set[int] = set()
+
+    # Room-blocking patients: occupy a room compatible with target during its window
+    for day in range(pat.surgery_release_day, min(pat.last_possible_day + 1, instance.days)):
+        for r in range(len(instance.rooms)):
+            if r in pat.incompatible_rooms:
+                continue
+            for p in schedule._room_day_patients[r][day]:
+                if p not in seen and p not in mandatory_set:
+                    blocking.append(p)
+                    seen.add(p)
+
+    # Surgeon-competing patients: share the surgeon on any day in the surgery window
+    s_idx = pat.surgeon
+    for p, d in enumerate(schedule.patient_day):
+        if (
+            d != -1
+            and pat.surgery_release_day <= d <= pat.last_possible_day
+            and instance.patients[p].surgeon == s_idx
+            and p not in seen
+            and p not in mandatory_set
+        ):
+            blocking.append(p)
+            seen.add(p)
+
+    if not blocking:
+        return _destroy_random(schedule, k, rng, instance)
+
+    rng.shuffle(blocking)
+    to_remove = blocking[:k]
+    if len(to_remove) < k:
+        assigned = [
+            p for p in range(len(instance.patients))
+            if schedule.patient_day[p] != -1 and p not in seen
+        ]
+        rng.shuffle(assigned)
+        to_remove = to_remove + assigned[: k - len(to_remove)]
+
+    for p in to_remove:
+        schedule.unassign_patient(p)
+    return to_remove
 
 
 def _clear_nurses(schedule: Schedule, instance: Instance) -> None:
