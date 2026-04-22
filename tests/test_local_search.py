@@ -23,6 +23,7 @@ from src.solvers.local_search import (
     _compute_surgeon_load,
     _compute_theater_load,
     _copy_into,
+    _destroy_blocking_mandatory,
     _destroy_high_delay,
     _destroy_random,
     _destroy_related,
@@ -58,6 +59,7 @@ class TestLNSConfig:
         assert cfg.max_destroy_ratio == 0.30
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
+        assert cfg.rescue_gate == 50
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -716,3 +718,40 @@ class TestClearNurses:
         for n in range(len(instance.nurses)):
             for s in range(instance.total_shifts):
                 assert sched.nurse_shift_rooms[n][s] == []
+
+
+# ---------------------------------------------------------------------------
+# _destroy_blocking_mandatory
+# ---------------------------------------------------------------------------
+
+
+class TestDestroyBlockingMandatory:
+    def test_fallback_to_random_when_all_mandatory_placed(self, instance, greedy_schedule) -> None:
+        sched = _clone(greedy_schedule)
+        n_p = len(instance.patients)
+        mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
+        # All mandatory patients should be placed by a greedy schedule
+        rng = random.Random(42)
+        removed = _destroy_blocking_mandatory(sched, 3, rng, instance, mandatory_set)
+        assert len(removed) <= 3
+        assert len(removed) > 0
+
+    def test_targets_blocking_patients_when_mandatory_unscheduled(self, instance, greedy_schedule) -> None:
+        sched = _clone(greedy_schedule)
+        n_p = len(instance.patients)
+        mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
+        # Manually unassign a mandatory patient to simulate infeasibility
+        target = next(iter(mandatory_set))
+        sched.unassign_patient(target)
+        pat = instance.patients[target]
+        rng = random.Random(0)
+        removed = _destroy_blocking_mandatory(sched, 5, rng, instance, mandatory_set)
+        # Removed patients must not include any mandatory patient
+        for p in removed:
+            assert p not in mandatory_set
+        # Target itself must not be in removed (it was already unassigned)
+        assert target not in removed
+        # All removed patients must have been assigned (i.e., were actually unassigned)
+        for p in removed:
+            assert sched.patient_day[p] == -1
+        _ = pat  # referenced for clarity
