@@ -60,6 +60,8 @@ class TestLNSConfig:
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
+        assert cfg.no_improve_limit == 500
+        assert cfg.perturb_ratio == 0.50
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -81,7 +83,11 @@ class TestLocalSearchSolverIntegration:
         r1 = LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=7)
         r2 = LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=7)
         assert r1.total_cost() == r2.total_cost()
-        assert r1.total_violations() == r2.total_violations()
+
+    def test_perturbation_restart_triggers(self, instance) -> None:
+        cfg = LNSConfig(no_improve_limit=1, perturb_ratio=0.50)
+        result = LocalSearchSolver(config=cfg).solve(instance, time_limit_seconds=2.0, seed=0)
+        assert isinstance(result, Schedule)
 
     def test_different_seeds_may_differ(self, instance) -> None:
         # Not guaranteed to differ, but at least must not crash

@@ -56,6 +56,10 @@ class LNSConfig:
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
     violation_penalty: int = 1_000_000
     rescue_gate: int = 50
+    # Perturbation restart: after no_improve_limit iterations without a new best,
+    # destroy perturb_ratio of patients at random to escape deep local optima.
+    no_improve_limit: int = 500
+    perturb_ratio: float = 0.50
 
 
 class LocalSearchSolver(Solver):
@@ -87,6 +91,7 @@ class LocalSearchSolver(Solver):
 
         cfg = self.config
         iters = 0
+        iters_since_improvement = 0
         # Counts consecutive iterations where rescue found no unscheduled mandatory
         # patients to place. Blocking destroy only activates after this exceeds
         # rescue_gate, distinguishing structural infeasibility (high streak) from
@@ -94,6 +99,19 @@ class LocalSearchSolver(Solver):
         rescue_fail_streak = 0
 
         while time.monotonic() < deadline:
+            # Perturbation restart: after no_improve_limit iterations with no new best,
+            # do a large random destroy to escape deep local optima.
+            if iters_since_improvement >= cfg.no_improve_limit:
+                k_perturb = max(1, int(cfg.perturb_ratio * n_p))
+                perturbed = _destroy_random(current, k_perturb, rng, instance)
+                _repair_patients(current, perturbed, greedy, instance)
+                if best_infeasible or (mandatory_set & set(perturbed)):
+                    _rescue_mandatory(current, greedy, instance)
+                _clear_nurses(current, instance)
+                greedy._assign_nurses(instance, current)
+                iters_since_improvement = 0
+                _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
+
             ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
             k = max(1, int(ratio * n_p))
 
@@ -131,6 +149,7 @@ class LocalSearchSolver(Solver):
                 best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
                 if not best_infeasible:
                     rescue_fail_streak = 0
+                iters_since_improvement = 0
                 _log.debug(
                     "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                     iters,
@@ -142,6 +161,7 @@ class LocalSearchSolver(Solver):
                 )
             else:
                 _copy_into(current, best)
+                iters_since_improvement += 1
 
             iters += 1
 
