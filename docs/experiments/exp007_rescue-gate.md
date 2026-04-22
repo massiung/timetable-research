@@ -38,45 +38,54 @@ Built on `exp/rescue-gate` (branched from main after exp004 merge):
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5532 | 0 | 60.00 |
+| i02 | 2495 | 0 | 60.00 |
+| i03 | 12120 | 0 | 60.00 |
+| i04 | 4401 | 0 | 60.00 |
+| i05 | 14655 | 0 | 60.00 |
+| i06 | 11799 | 0 | 60.00 |
+| i07 | 7824 | 0 | 60.00 |
+| i08 | 9087 | 0 | 60.00 |
+| i09 | 12694 | 0 | 60.00 |
+| i10 | 32680 | 0 | 60.00 |
+| i11 | 32103 | 0 | 60.00 |
+| i12 | 16357 | 0 | 60.00 |
+| i13 | 27108 | 0 | 60.00 |
+| i14 | 16447 | 0 | 60.00 |
+| i15 | 23515 | 0 | 60.00 |
+| i16 | 17318 | 0 | 60.00 |
+| i17 | 76375 | 0 | 60.00 |
+| i18 | 48148 | 0 | 60.00 |
+| i19 | 71645 | 0 | 60.00 |
+| i20 | 42267 | 0 | 60.00 |
+| i21 | 41868 | 0 | 60.00 |
+| i22 | 99839 | 0 | 60.00 |
+| i23 | 58246 | 0 | 60.01 |
+| i24 | 44255 | 0 | 60.01 |
+| i25 | 19795 | 0 | 60.00 |
+| i26 | 112191 | 0 | 60.01 |
+| i27 | 106921 | 0 | 60.01 |
+| i28 | 88546 | 0 | 60.01 |
+| i29 | 25007 | 0 | 60.00 |
+| i30 | 49530 | 0 | 60.00 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37692.3
+**avg_time_s:** 60.00
+**n_feasible:** 30 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** keep
 
-## What to try next
+- avg_cost 37692.3 vs exp004's 38415.3 — **-1.9% improvement**.
+- **i16 is now feasible** (cost 17318, 0 violations) — first feasible result across all experiments.
+- **30/30 instances feasible** — up from 29/30 in exp004.
+- i20 unchanged (42267) — rescue-gate correctly prevented blocking destroy from firing during transient startup infeasibility. The rescue_fail_streak was reset before reaching 50.
+- i10 slight regression (+180, +0.6%); i22 improvement (-657, -0.7%). Everything else identical or marginally better.
+- Rescue-gate (N=50) is the key insight: distinguishes structural infeasibility (i16, streak stays high because rescue keeps failing) from transient infeasibility (i20, rescue fixes it early so streak never grows).
 
-TBD after results.
+## What to try next (exp008)
+
+1. **Tune rescue_gate**: try lower values (N=20, N=10) — faster activation of blocking destroy may help other potentially-hard instances without hurting the easy ones.
+2. **Diversification via random restarts**: after convergence (no improvement for K iterations), reset to a fresh greedy solution. May escape deep local optima on large instances (i26, i27).
+3. **Adaptive destroy size**: scale k with remaining time — larger k early (exploration), smaller k late (exploitation).

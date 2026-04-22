@@ -5,3 +5,4 @@ exp003	5aed098	2026-04-21	exp/lns-v2	local_search	41728.0	30	60.00	keep	LNS v2: 
 exp004	fc0c82f	2026-04-21	exp/constrained-first-restore	local_search	38415.3	30	60.00	keep	constrained_first init restored + rescue skip; -7.9% avg_cost vs exp003; 29/30 feasible
 exp005	49b2178	2026-04-21	exp/lahc-blocking	local_search	38593.7	30	60.00	discard	LAHC(L=100)+blocking destroy; +0.47% regression vs exp004; i16 2->1 viol but still infeasible
 exp006	61b6a59	2026-04-21	exp/surgeon-blocking	local_search	38524.9	30	60.00	discard	surgeon-aware blocking destroy (no LAHC); +0.28% regression vs exp004; i16 still 1 viol; i20 +6.8%
+exp007	14d3c93	2026-04-22	exp/rescue-gate	local_search	37692.3	30	60.00	keep	rescue-gate(N=50)+blocking destroy; -1.9% avg_cost vs exp004; i16 first feasible; 30/30 feasible
