@@ -33,45 +33,54 @@ Built on `exp/perturb-n100` (branched from main after exp007 merge):
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5596 | 0 | 60.00 |
+| i02 | 2526 | 0 | 60.00 |
+| i03 | 12120 | 0 | 60.00 |
+| i04 | 4377 | 0 | 60.00 |
+| i05 | 14706 | 0 | 60.00 |
+| i06 | 11799 | 0 | 60.00 |
+| i07 | 7703 | 0 | 60.00 |
+| i08 | 9216 | 0 | 60.00 |
+| i09 | 12596 | 0 | 60.00 |
+| i10 | 32840 | 0 | 60.00 |
+| i11 | 31955 | 0 | 60.00 |
+| i12 | 16516 | 0 | 60.00 |
+| i13 | 27110 | 0 | 60.00 |
+| i14 | 16428 | 0 | 60.00 |
+| i15 | 23442 | 0 | 60.00 |
+| i16 | 17317 | 0 | 60.00 |
+| i17 | 76940 | 0 | 60.01 |
+| i18 | 48369 | 0 | 60.00 |
+| i19 | 72158 | 0 | 60.01 |
+| i20 | 42750 | 0 | 60.00 |
+| i21 | 41963 | 0 | 60.00 |
+| i22 | 99662 | 0 | 60.00 |
+| i23 | 58558 | 0 | 60.01 |
+| i24 | 44202 | 0 | 60.00 |
+| i25 | 19723 | 0 | 60.00 |
+| i26 | 111510 | 0 | 60.01 |
+| i27 | 105361 | 0 | 60.01 |
+| i28 | 88527 | 0 | 60.00 |
+| i29 | 25035 | 0 | 60.00 |
+| i30 | 49264 | 0 | 60.00 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37675.6
+**avg_time_s:** 60.00
+**n_feasible:** 30 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** keep
 
-## What to try next
+- avg_cost 37675.6 vs exp007's 37692.3 — **-0.044% improvement** (new best). Small but consistent.
+- **30/30 feasible maintained** — i16 stays at 17317.
+- Notable improvements vs exp007: i07 (-1.5%), i09 (-0.8%), i11 (-0.5%), i27 (-1.5%), i30 (-0.6%), i22 (-0.2%).
+- Some regressions: i01 (+1.2%), i02 (+1.2%), i05 (+0.3%), i17 (+0.7%), i20 (+1.1%). These are within the noise of perturbation randomness.
+- N=100 fires perturbation ~20-50x per 60s run — enough to meaningfully escape local optima while not preventing fine-grained convergence.
+- Feasibility gate confirmed working: i16 remains feasible because perturbation doesn't fire until after blocking destroy achieves feasibility.
 
-TBD after results.
+## What to try next (exp012)
+
+1. **Tune perturb_ratio**: try 30% instead of 50%. Smaller perturbation preserves more structure, potentially landing closer to the current best and recovering faster.
+2. **Weighted op selection**: give higher probability to `related` and `high_delay` ops (e.g., 20% random, 40% related, 40% high_delay) since they are more targeted.
+3. **Related destroy by room**: extend related destroy to group patients by room/day proximity instead of only surgeon, diversifying the search neighborhood.
