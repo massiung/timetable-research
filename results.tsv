@@ -8,3 +8,4 @@ exp006	61b6a59	2026-04-21	exp/surgeon-blocking	local_search	38524.9	30	60.00	dis
 exp007	14d3c93	2026-04-22	exp/rescue-gate	local_search	37692.3	30	60.00	keep	rescue-gate(N=50)+blocking destroy; -1.9% avg_cost vs exp004; i16 first feasible; 30/30 feasible
 exp008	6d276ed	2026-04-22	exp/adaptive-destroy	local_search	38691.0	30	60.00	discard	adaptive destroy [15-40%->10-30%]; +2.6% regression vs exp007; i16 infeasible again; rescue-gate breaks
 exp009	66b9aea	2026-04-22	exp/perturbation-restart	local_search	38416.0	30	60.00	discard	perturbation restart(N=500,50%); +1.9% regression vs exp007; i16 infeasible; disrupts rescue-gate
+exp010	2557ee4	2026-04-22	exp/feasible-perturb	local_search	37713.2	30	60.00	discard	feasibility-gated perturb(N=500,50%); +0.056% vs exp007; 30/30 feasible; N=500 too infrequent
