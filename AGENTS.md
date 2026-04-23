@@ -39,6 +39,13 @@ Reference score for test01 reference solution: **3177** (0 violations).
 
 ## Code Quality
 
+**Pre-commit hooks** run `ruff-format` and `ruff --fix` automatically on every `git commit`. Install once after cloning:
+
+```bash
+uv sync
+uv run pre-commit install
+```
+
 All four checks must pass before committing. Run them in this order:
 
 ```bash

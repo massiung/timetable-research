@@ -115,7 +115,9 @@ class LocalSearchSolver(Solver):
             k = max(1, int(ratio * n_p))
 
             use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
-            ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
+            ops: list[str] = (
+                [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
+            )
             op: str = rng.choice(ops)
 
             if op == "random":

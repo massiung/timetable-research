@@ -14,11 +14,17 @@ def run_solver(instance: str, solver: str, time_limit: float) -> tuple[float, in
     out_path = REPO / "data" / "solutions" / f"{instance}_solution.json"
     result = subprocess.run(
         [
-            sys.executable, "-m", "src.main",
-            "--instance", str(REPO / "data" / "instances" / f"{instance}.json"),
-            "--solver", solver,
-            "--output", str(out_path),
-            "--time-limit", str(time_limit),
+            sys.executable,
+            "-m",
+            "src.main",
+            "--instance",
+            str(REPO / "data" / "instances" / f"{instance}.json"),
+            "--solver",
+            solver,
+            "--output",
+            str(out_path),
+            "--time-limit",
+            str(time_limit),
         ],
         capture_output=True,
         text=True,
@@ -61,12 +67,18 @@ def main() -> None:
     if not validator.exists():
         print("Building validator…", file=sys.stderr)
         subprocess.run(
-            ["g++", "-O2", "-std=c++17", "-o", str(validator),
-             str(REPO / "validator" / "IHTP_Validator.cc")],
+            [
+                "g++",
+                "-O2",
+                "-std=c++17",
+                "-o",
+                str(validator),
+                str(REPO / "validator" / "IHTP_Validator.cc"),
+            ],
             check=True,
         )
 
-    print(f"instance\tcost\tviolations\telapsed_s\tstatus", flush=True)
+    print("instance\tcost\tviolations\telapsed_s\tstatus", flush=True)
 
     feasible_costs: list[int] = []
     all_times: list[float] = []

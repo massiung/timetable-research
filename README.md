@@ -54,6 +54,19 @@ uv run pytest
 uv run pytest tests/test_foo.py   # single file
 ```
 
+## Development
+
+### Pre-commit hooks
+
+Formatting and lint checks run automatically on every `git commit`. After cloning, install the hooks once:
+
+```bash
+uv sync
+uv run pre-commit install
+```
+
+The hooks run `ruff-format` and `ruff --fix` on `src/` and `tests/` before each commit. mypy and pytest are left to CI.
+
 ## Docs
 
 | File | Contents |

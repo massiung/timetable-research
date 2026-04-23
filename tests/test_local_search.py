@@ -743,7 +743,9 @@ class TestDestroyBlockingMandatory:
         assert len(removed) <= 3
         assert len(removed) > 0
 
-    def test_targets_blocking_patients_when_mandatory_unscheduled(self, instance, greedy_schedule) -> None:
+    def test_targets_blocking_patients_when_mandatory_unscheduled(
+        self, instance, greedy_schedule
+    ) -> None:
         sched = _clone(greedy_schedule)
         n_p = len(instance.patients)
         mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
