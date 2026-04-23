@@ -60,6 +60,8 @@ class TestLNSConfig:
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
+        assert cfg.no_improve_limit == 100
+        assert cfg.perturb_ratio == 0.50
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -87,6 +89,11 @@ class TestLocalSearchSolverIntegration:
         # Not guaranteed to differ, but at least must not crash
         LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=1)
         LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=2)
+
+    def test_perturbation_does_not_crash(self, instance) -> None:
+        cfg = LNSConfig(no_improve_limit=1, perturb_ratio=0.50)
+        result = LocalSearchSolver(config=cfg).solve(instance, time_limit_seconds=2.0, seed=0)
+        assert isinstance(result, Schedule)
 
     def test_single_op_config(self, instance) -> None:
         cfg = LNSConfig(destroy_ops=["random"])
