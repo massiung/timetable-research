@@ -2,6 +2,10 @@
 
 Research repository for the [Integrated Healthcare Timetabling Competition 2024](https://ihtc2024.github.io/).
 
+## Autoresearch
+
+This repo is an experiment in the spirit of [karpathy/autoresearch](https://github.com/karpathy/autoresearch): rather than a human researcher manually designing and benchmarking algorithms, an AI agent (Claude) drives the research loop — proposing algorithm variants, implementing them on short-lived `exp/*` branches, running them across all 30 competition instances via `/benchmark`, recording scores in `results.tsv`, and deciding what to keep or discard. The human role is to set the objective (minimise IHTC 2024 cost) and review what the agent learns; the agent handles the grind of iterating, scoring, and documenting experiments.
+
 ## Problem
 
 IHTC 2024 combines three subproblems: **surgical case planning**, **patient admission scheduling**, and **nurse-to-room assignment**. The objective is to minimise a weighted sum of soft-constraint violations while satisfying all hard constraints. See [`docs/problem_description.md`](docs/problem_description.md) for the full formulation.
