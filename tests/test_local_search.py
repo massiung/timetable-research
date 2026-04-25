@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
+from typing import cast
 
 import pytest
 
+import src.solvers.local_search as _lns_module
 from src.solvers.greedy import GreedyConfig, GreedySolver
 from src.solvers.local_search import (
+    DestroyOp,
     LNSConfig,
     LocalSearchSolver,
     _clear_nurses,
@@ -29,9 +32,11 @@ from src.solvers.local_search import (
     _destroy_related,
     _forced_insert,
     _insert_best,
+    _lns_worker,
     _objective,
     _repair_patients,
     _rescue_mandatory,
+    _WorkerResult,
 )
 from src.utils.loader import load_instance
 from src.utils.schedule import Schedule
@@ -62,6 +67,7 @@ class TestLNSConfig:
         assert cfg.rescue_gate == 50
         assert cfg.no_improve_limit == 100
         assert cfg.perturb_ratio == 0.50
+        assert cfg.num_workers == 4
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -74,47 +80,98 @@ class TestLNSConfig:
 # ---------------------------------------------------------------------------
 
 
+_S1 = LNSConfig(num_workers=1)  # single-worker config for fast unit tests
+
+
 class TestLocalSearchSolverIntegration:
     def test_returns_schedule(self, instance) -> None:
-        result = LocalSearchSolver().solve(instance, time_limit_seconds=2.0, seed=0)
+        result = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=2.0, seed=0)
         assert isinstance(result, Schedule)
 
     def test_respects_seed_determinism(self, instance) -> None:
-        r1 = LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=7)
-        r2 = LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=7)
+        r1 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=7)
+        r2 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=7)
         assert r1.total_cost() == r2.total_cost()
         assert r1.total_violations() == r2.total_violations()
 
     def test_different_seeds_may_differ(self, instance) -> None:
-        # Not guaranteed to differ, but at least must not crash
-        LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=1)
-        LocalSearchSolver().solve(instance, time_limit_seconds=1.0, seed=2)
+        LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=1)
+        LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=2)
 
     def test_perturbation_does_not_crash(self, instance) -> None:
-        cfg = LNSConfig(no_improve_limit=1, perturb_ratio=0.50)
+        cfg = LNSConfig(no_improve_limit=1, perturb_ratio=0.50, num_workers=1)
         result = LocalSearchSolver(config=cfg).solve(instance, time_limit_seconds=2.0, seed=0)
         assert isinstance(result, Schedule)
 
     def test_single_op_config(self, instance) -> None:
-        cfg = LNSConfig(destroy_ops=["random"])
+        cfg = LNSConfig(destroy_ops=["random"], num_workers=1)
         result = LocalSearchSolver(cfg).solve(instance, time_limit_seconds=1.0, seed=0)
         assert isinstance(result, Schedule)
 
     def test_related_op_only(self, instance) -> None:
-        cfg = LNSConfig(destroy_ops=["related"])
+        cfg = LNSConfig(destroy_ops=["related"], num_workers=1)
         result = LocalSearchSolver(cfg).solve(instance, time_limit_seconds=1.0, seed=0)
         assert isinstance(result, Schedule)
 
     def test_high_delay_op_only(self, instance) -> None:
-        cfg = LNSConfig(destroy_ops=["high_delay"])
+        cfg = LNSConfig(destroy_ops=["high_delay"], num_workers=1)
         result = LocalSearchSolver(cfg).solve(instance, time_limit_seconds=1.0, seed=0)
+        assert isinstance(result, Schedule)
+
+    def test_parallel_workers(self, instance) -> None:
+        """solve() with num_workers=2 runs two independent LNS processes."""
+        cfg = LNSConfig(num_workers=2)
+        result = LocalSearchSolver(cfg).solve(instance, time_limit_seconds=2.0, seed=0)
         assert isinstance(result, Schedule)
 
     def test_lns_not_worse_than_greedy(self, instance) -> None:
         """LNS with 5 s should match or beat greedy cost on test01."""
         greedy_cost = GreedySolver().solve(instance, time_limit_seconds=60.0, seed=0).total_cost()
-        lns_cost = LocalSearchSolver().solve(instance, time_limit_seconds=5.0, seed=0).total_cost()
+        lns_cost = (
+            LocalSearchSolver(_S1).solve(instance, time_limit_seconds=5.0, seed=0).total_cost()
+        )
         assert lns_cost <= greedy_cost
+
+
+# ---------------------------------------------------------------------------
+# _lns_worker / _WorkerResult
+# ---------------------------------------------------------------------------
+
+
+class TestLNSWorker:
+    def test_returns_worker_result(self, instance) -> None:
+        cfg = LNSConfig(num_workers=1)
+        result = _lns_worker((instance, 1.0, 0, cfg))
+        assert isinstance(result, _WorkerResult)
+        assert isinstance(result.obj, int)
+        assert len(result.patient_day) == len(instance.patients)
+
+    def test_worker_result_obj_matches_state(self, instance) -> None:
+        cfg = LNSConfig(num_workers=1)
+        result = _lns_worker((instance, 1.0, 0, cfg))
+        schedule = Schedule(instance)
+        schedule.patient_day = result.patient_day
+        schedule.patient_room = result.patient_room
+        schedule.patient_theater = result.patient_theater
+        schedule.room_shift_nurse = result.room_shift_nurse
+        schedule.nurse_shift_rooms = result.nurse_shift_rooms
+        schedule._room_day_patients = result.room_day_patients
+        assert result.obj == _objective(schedule, cfg.violation_penalty)
+
+    def test_blocking_destroy_and_rescue_fail_streak(self, instance, monkeypatch) -> None:
+        """Cover lines 132/140: blocking destroy and rescue_fail_streak.
+
+        Both lines only fire when best_infeasible=True (greedy left mandatory
+        patients unscheduled). We simulate that by patching greedy.solve to
+        return an empty Schedule and rescue to always return 0, so best_infeasible
+        persists and the rescue_fail_streak branch is exercised.
+        """
+        monkeypatch.setattr(GreedySolver, "solve", lambda self, inst, tl, s: Schedule(inst))
+        monkeypatch.setattr(_lns_module, "_rescue_mandatory", lambda *a: 0)
+        # destroy_ops=[] with rescue_gate=0 forces ops=["blocking"] every iteration
+        cfg = LNSConfig(destroy_ops=cast(list[DestroyOp], []), rescue_gate=0, num_workers=1)
+        result = _lns_worker((instance, 0.1, 0, cfg))
+        assert isinstance(result, _WorkerResult)
 
 
 # ---------------------------------------------------------------------------
@@ -742,6 +799,26 @@ class TestDestroyBlockingMandatory:
         removed = _destroy_blocking_mandatory(sched, 3, rng, instance, mandatory_set)
         assert len(removed) <= 3
         assert len(removed) > 0
+
+    def test_fallback_random_when_only_mandatory_assigned(self, instance) -> None:
+        """Cover line 351: fallback to random when blocking list is empty.
+
+        All assigned patients are mandatory, so the non-mandatory filter
+        leaves blocking empty → _destroy_random is called as fallback.
+        """
+        sched = Schedule(instance)
+        n_p = len(instance.patients)
+        mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
+        # Assign ONLY mandatory patients — all room occupants will be mandatory
+        for p in mandatory_set:
+            pat = instance.patients[p]
+            sched.assign_patient(p, pat.surgery_release_day, 0, 0)
+        # Unassign one so there is an unscheduled mandatory (but no non-mandatory blocking)
+        target = next(iter(mandatory_set))
+        sched.unassign_patient(target)
+        rng = random.Random(0)
+        removed = _destroy_blocking_mandatory(sched, 2, rng, instance, mandatory_set)
+        assert isinstance(removed, list)
 
     def test_targets_blocking_patients_when_mandatory_unscheduled(
         self, instance, greedy_schedule

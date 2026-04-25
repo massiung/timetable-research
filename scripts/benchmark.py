@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 INSTANCES = [f"i{i:02d}" for i in range(1, 31)]
@@ -56,10 +57,26 @@ def run_validator(instance: str) -> tuple[int, int]:
     return violations, cost
 
 
+def _process_instance(instance: str, solver: str, time_limit: float) -> tuple[str, float, int, int]:
+    """Run solver + validator for one instance. Returns (instance, elapsed, violations, cost)."""
+    elapsed, exit_code = run_solver(instance, solver, time_limit)
+    if exit_code != 0:
+        return instance, elapsed, -1, -1
+    violations, cost = run_validator(instance)
+    return instance, elapsed, violations, cost
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark solver on i01–i30")
     parser.add_argument("--solver", default="greedy", choices=["greedy", "cp", "local_search"])
-    parser.add_argument("--time-limit", type=float, default=60.0, metavar="SECONDS")
+    parser.add_argument("--time-limit", type=float, default=600.0, metavar="SECONDS")
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=2,
+        metavar="N",
+        help="number of instances to run concurrently (default: 2)",
+    )
     args = parser.parse_args()
 
     # Ensure validator exists
@@ -83,19 +100,19 @@ def main() -> None:
     feasible_costs: list[int] = []
     all_times: list[float] = []
 
-    for instance in INSTANCES:
-        elapsed, exit_code = run_solver(instance, args.solver, args.time_limit)
-        if exit_code != 0:
-            print(f"{instance}\t—\t—\t{elapsed:.2f}\tcrash", flush=True)
-            continue
-
-        violations, cost = run_validator(instance)
-        status = "ok" if violations == 0 else "infeasible"
-        print(f"{instance}\t{cost}\t{violations}\t{elapsed:.2f}\t{status}", flush=True)
-
-        all_times.append(elapsed)
-        if violations == 0:
-            feasible_costs.append(cost)
+    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+        for instance, elapsed, violations, cost in executor.map(
+            lambda inst: _process_instance(inst, args.solver, args.time_limit),
+            INSTANCES,
+        ):
+            if violations == -1:
+                print(f"{instance}\t—\t—\t{elapsed:.2f}\tcrash", flush=True)
+                continue
+            status = "ok" if violations == 0 else "infeasible"
+            print(f"{instance}\t{cost}\t{violations}\t{elapsed:.2f}\t{status}", flush=True)
+            all_times.append(elapsed)
+            if violations == 0:
+                feasible_costs.append(cost)
 
     avg_cost = sum(feasible_costs) / len(feasible_costs) if feasible_costs else float("nan")
     avg_time = sum(all_times) / len(all_times) if all_times else float("nan")

@@ -32,6 +32,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -61,6 +62,123 @@ class LNSConfig:
     # patients to escape deep local optima.
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
+    # Number of independent LNS workers to run in parallel (competition max: 4).
+    num_workers: int = 4
+
+
+@dataclass
+class _WorkerResult:
+    obj: int
+    patient_day: list[int]
+    patient_room: list[int]
+    patient_theater: list[int]
+    room_shift_nurse: list[list[int]]
+    nurse_shift_rooms: list[list[list[int]]]
+    room_day_patients: list[list[list[int]]]
+
+
+def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
+    """Run one independent LNS trajectory and return the best schedule state."""
+    instance, time_limit_seconds, seed, cfg = args
+    rng = random.Random(seed)
+    deadline = time.monotonic() + time_limit_seconds
+
+    greedy = GreedySolver(GreedyConfig(patient_sort_key="constrained_first"))
+    current = greedy.solve(instance, time_limit_seconds, seed)
+    best = _clone(current)
+    best_obj = _objective(best, cfg.violation_penalty)
+
+    n_p = len(instance.patients)
+    mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
+    n_undef = sum(1 for p in mandatory_set if current.patient_day[p] == -1)
+    _log.info(
+        "init: violations=%d cost=%d unscheduled_mandatory=%d",
+        best.total_violations(),
+        best.total_cost(),
+        n_undef,
+    )
+
+    best_infeasible = n_undef > 0
+    iters = 0
+    iters_since_improvement = 0
+    rescue_fail_streak = 0
+
+    while time.monotonic() < deadline:
+        if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
+            k_perturb = max(1, int(cfg.perturb_ratio * n_p))
+            perturbed = _destroy_random(current, k_perturb, rng, instance)
+            _repair_patients(current, perturbed, greedy, instance)
+            _clear_nurses(current, instance)
+            greedy._assign_nurses(instance, current)
+            iters_since_improvement = 0
+            _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
+
+        ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
+        k = max(1, int(ratio * n_p))
+
+        use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
+        ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
+        op: str = rng.choice(ops)
+
+        if op == "random":
+            removed = _destroy_random(current, k, rng, instance)
+        elif op == "related":
+            removed = _destroy_related(current, k, rng, instance)
+        elif op == "high_delay":
+            removed = _destroy_high_delay(current, k, instance)
+        else:
+            removed = _destroy_blocking_mandatory(current, k, rng, instance, mandatory_set)
+
+        _repair_patients(current, removed, greedy, instance)
+        if best_infeasible or (mandatory_set & set(removed)):
+            rescued = _rescue_mandatory(current, greedy, instance)
+            if rescued > 0:
+                rescue_fail_streak = 0
+            elif best_infeasible:
+                rescue_fail_streak += 1
+        else:
+            rescued = 0
+        _clear_nurses(current, instance)
+        greedy._assign_nurses(instance, current)
+
+        obj = _objective(current, cfg.violation_penalty)
+        if obj < best_obj:
+            best = _clone(current)
+            best_obj = obj
+            best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
+            if not best_infeasible:
+                rescue_fail_streak = 0
+            iters_since_improvement = 0
+            _log.debug(
+                "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
+                iters,
+                op,
+                k,
+                rescued,
+                best.total_violations(),
+                best.total_cost(),
+            )
+        else:
+            _copy_into(current, best)
+            iters_since_improvement += 1
+
+        iters += 1
+
+    _log.info(
+        "done: iters=%d violations=%d cost=%d",
+        iters,
+        best.total_violations(),
+        best.total_cost(),
+    )
+    return _WorkerResult(
+        obj=best_obj,
+        patient_day=best.patient_day[:],
+        patient_room=best.patient_room[:],
+        patient_theater=best.patient_theater[:],
+        room_shift_nurse=[row[:] for row in best.room_shift_nurse],
+        nurse_shift_rooms=[[list(rooms) for rooms in ns] for ns in best.nurse_shift_rooms],
+        room_day_patients=[[list(day) for day in room] for room in best._room_day_patients],
+    )
 
 
 class LocalSearchSolver(Solver):
@@ -68,111 +186,24 @@ class LocalSearchSolver(Solver):
         self.config = config or LNSConfig()
 
     def solve(self, instance: Instance, time_limit_seconds: float, seed: int) -> Schedule:
-        rng = random.Random(seed)
-        deadline = time.monotonic() + time_limit_seconds
+        n = self.config.num_workers
+        worker_args = [(instance, time_limit_seconds, seed + i, self.config) for i in range(n)]
 
-        greedy = GreedySolver(GreedyConfig(patient_sort_key="constrained_first"))
-        current = greedy.solve(instance, time_limit_seconds, seed)
-        best = _clone(current)
-        best_obj = _objective(best, self.config.violation_penalty)
+        if n == 1:
+            result = _lns_worker(worker_args[0])
+        else:
+            with ProcessPoolExecutor(max_workers=n) as executor:
+                results = list(executor.map(_lns_worker, worker_args))
+            result = min(results, key=lambda r: r.obj)
 
-        n_p = len(instance.patients)
-        mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
-        n_undef = sum(1 for p in mandatory_set if current.patient_day[p] == -1)
-        _log.info(
-            "init: violations=%d cost=%d unscheduled_mandatory=%d",
-            best.total_violations(),
-            best.total_cost(),
-            n_undef,
-        )
-
-        # True when best has at least one unscheduled mandatory patient.
-        # Used to skip the O(n) rescue scan on iterations where it cannot help.
-        best_infeasible = n_undef > 0
-
-        cfg = self.config
-        iters = 0
-        iters_since_improvement = 0
-        # Counts consecutive iterations where rescue found no unscheduled mandatory
-        # patients to place. Blocking destroy only activates after this exceeds
-        # rescue_gate, distinguishing structural infeasibility (high streak) from
-        # transient startup infeasibility that rescue handles quickly (low streak).
-        rescue_fail_streak = 0
-
-        while time.monotonic() < deadline:
-            # Perturbation restart (feasibility-gated): only fire when best is feasible
-            # to preserve the rescue_fail_streak mechanism for infeasible instances.
-            if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
-                k_perturb = max(1, int(cfg.perturb_ratio * n_p))
-                perturbed = _destroy_random(current, k_perturb, rng, instance)
-                _repair_patients(current, perturbed, greedy, instance)
-                _clear_nurses(current, instance)
-                greedy._assign_nurses(instance, current)
-                iters_since_improvement = 0
-                _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
-
-            ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
-            k = max(1, int(ratio * n_p))
-
-            use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
-            ops: list[str] = (
-                [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
-            )
-            op: str = rng.choice(ops)
-
-            if op == "random":
-                removed = _destroy_random(current, k, rng, instance)
-            elif op == "related":
-                removed = _destroy_related(current, k, rng, instance)
-            elif op == "high_delay":
-                removed = _destroy_high_delay(current, k, instance)
-            else:
-                removed = _destroy_blocking_mandatory(current, k, rng, instance, mandatory_set)
-
-            _repair_patients(current, removed, greedy, instance)
-            # Skip rescue when best is feasible and no mandatory patients were destroyed —
-            # repair cannot leave new unscheduled mandatories in that case.
-            if best_infeasible or (mandatory_set & set(removed)):
-                rescued = _rescue_mandatory(current, greedy, instance)
-                if rescued > 0:
-                    rescue_fail_streak = 0
-                elif best_infeasible:
-                    rescue_fail_streak += 1
-            else:
-                rescued = 0
-            _clear_nurses(current, instance)
-            greedy._assign_nurses(instance, current)
-
-            obj = _objective(current, cfg.violation_penalty)
-            if obj < best_obj:
-                best = _clone(current)
-                best_obj = obj
-                best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
-                if not best_infeasible:
-                    rescue_fail_streak = 0
-                iters_since_improvement = 0
-                _log.debug(
-                    "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
-                    iters,
-                    op,
-                    k,
-                    rescued,
-                    best.total_violations(),
-                    best.total_cost(),
-                )
-            else:
-                _copy_into(current, best)
-                iters_since_improvement += 1
-
-            iters += 1
-
-        _log.info(
-            "done: iters=%d violations=%d cost=%d",
-            iters,
-            best.total_violations(),
-            best.total_cost(),
-        )
-        return best
+        schedule = Schedule(instance)
+        schedule.patient_day = result.patient_day
+        schedule.patient_room = result.patient_room
+        schedule.patient_theater = result.patient_theater
+        schedule.room_shift_nurse = result.room_shift_nurse
+        schedule.nurse_shift_rooms = result.nurse_shift_rooms
+        schedule._room_day_patients = result.room_day_patients
+        return schedule
 
 
 # ---------------------------------------------------------------------------
