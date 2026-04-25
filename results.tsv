@@ -10,4 +10,4 @@ exp008	6d276ed	2026-04-22	exp/adaptive-destroy	local_search	38691.0	30	60.00	dis
 exp009	66b9aea	2026-04-22	exp/perturbation-restart	local_search	38416.0	30	60.00	discard	perturbation restart(N=500,50%); +1.9% regression vs exp007; i16 infeasible; disrupts rescue-gate
 exp010	2557ee4	2026-04-22	exp/feasible-perturb	local_search	37713.2	30	60.00	discard	feasibility-gated perturb(N=500,50%); +0.056% vs exp007; 30/30 feasible; N=500 too infrequent
 exp011	abfe57f	2026-04-23	exp/perturb-n100	local_search	37675.6	30	60.00	keep	feasibility-gated perturb(N=100,50%); -0.044% vs exp007; 30/30 feasible; new best
-exp012	d7ed798	2026-04-23	exp/4thread-600s	local_search	37180.3	30	600.11	pending	4-worker parallel LNS + 600s time limit (competition-legal baseline); 30/30 feasible
+exp012	d7ed798	2026-04-23	exp/4thread-600s	local_search	37180.3	30	600.11	keep	4-worker parallel LNS + 600s time limit (competition-legal baseline); 30/30 feasible

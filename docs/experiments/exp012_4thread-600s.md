@@ -3,7 +3,7 @@
 **Branch:** exp/4thread-600s
 **Date:** 2026-04-23
 **Solver:** local_search
-**Status:** pending decision
+**Status:** keep
 
 ## Hypothesis
 
@@ -75,5 +75,10 @@ Built on `main` after exp011 merge:
 
 ## Conclusion
 
-**Decision:** pending decision
+**Decision:** keep
+
+- avg_cost 37180.3 vs exp011's 37675.6 — **-1.31% improvement**, every instance improved.
+- 30/30 feasible maintained.
+- Pure infrastructure gain: no algorithm change, just using the full competition time budget (600s vs 60s) and 4 parallel trajectories instead of 1.
+- This is now the **reference baseline** for all future experiments (competition-legal configuration).
 
