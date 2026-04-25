@@ -1,6 +1,7 @@
 """Run a solver across all 30 non-test instances and print a TSV summary."""
 
 import argparse
+import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +9,12 @@ from pathlib import Path
 
 INSTANCES = [f"i{i:02d}" for i in range(1, 31)]
 REPO = Path(__file__).parent.parent
+
+# Import default worker count without executing solver code
+sys.path.insert(0, str(REPO))
+from src.solvers.local_search import LNSConfig  # noqa: E402
+
+_DEFAULT_PARALLEL = max(1, (os.cpu_count() or 1) // LNSConfig().num_workers)
 
 
 def run_solver(instance: str, solver: str, time_limit: float) -> tuple[float, int]:
@@ -73,9 +80,9 @@ def main() -> None:
     parser.add_argument(
         "--parallel",
         type=int,
-        default=2,
+        default=_DEFAULT_PARALLEL,
         metavar="N",
-        help="number of instances to run concurrently (default: 2)",
+        help=f"instances to run concurrently (default: cpu_count//lns_workers={_DEFAULT_PARALLEL})",
     )
     args = parser.parse_args()
 
