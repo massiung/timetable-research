@@ -50,18 +50,25 @@ def _default_ops() -> list[DestroyOp]:
     return ["random", "related", "high_delay"]
 
 
+def _default_op_weights() -> list[float]:
+    # 20% random / 40% related / 40% high_delay — more targeted ops get higher probability
+    return [1.0, 2.0, 2.0]
+
+
 @dataclass
 class LNSConfig:
     min_destroy_ratio: float = 0.10
     max_destroy_ratio: float = 0.30
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
+    # Per-op sampling weights matching destroy_ops order; blocking always gets weight[0].
+    destroy_op_weights: list[float] = field(default_factory=_default_op_weights)
     violation_penalty: int = 1_000_000
     rescue_gate: int = 50
     # Feasibility-gated perturbation restart: after no_improve_limit consecutive
     # non-improving iterations AND best is already feasible, destroy perturb_ratio of
     # patients to escape deep local optima.
     no_improve_limit: int = 100
-    perturb_ratio: float = 0.50
+    perturb_ratio: float = 0.30
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
 
@@ -117,8 +124,13 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
         k = max(1, int(ratio * n_p))
 
         use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
-        ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
-        op: str = rng.choice(ops)
+        base_ops: list[str] = list(cfg.destroy_ops)
+        base_weights: list[float] = list(cfg.destroy_op_weights[: len(base_ops)])
+        ops: list[str] = base_ops + (["blocking"] if use_blocking else [])
+        op_weights: list[float] = base_weights + (
+            [base_weights[0] if base_weights else 1.0] if use_blocking else []
+        )
+        op: str = rng.choices(ops, weights=op_weights, k=1)[0]
 
         if op == "random":
             removed = _destroy_random(current, k, rng, instance)
@@ -274,9 +286,22 @@ def _destroy_related(
         return []
     seed_p = rng.choice(assigned)
     surgeon = instance.patients[seed_p].surgeon
-    related = [p for p in assigned if instance.patients[p].surgeon == surgeon]
+    related_set = {p for p in assigned if instance.patients[p].surgeon == surgeon}
+
+    # Room proximity: also pull in patients sharing the same room during overlapping stay days.
+    seed_room = schedule.patient_room[seed_p]
+    seed_day = schedule.patient_day[seed_p]
+    seed_los = instance.patients[seed_p].length_of_stay
+    seed_days = set(range(seed_day, seed_day + seed_los))
+    for p in assigned:
+        if p not in related_set and schedule.patient_room[p] == seed_room:
+            p_los = instance.patients[p].length_of_stay
+            if seed_days & set(range(schedule.patient_day[p], schedule.patient_day[p] + p_los)):
+                related_set.add(p)
+
+    related = sorted(related_set)
     if len(related) < k:
-        others = [p for p in assigned if p not in set(related)]
+        others = [p for p in assigned if p not in related_set]
         rng.shuffle(others)
         related = related + others[: k - len(related)]
     else:

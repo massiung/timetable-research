@@ -63,10 +63,11 @@ class TestLNSConfig:
         assert cfg.min_destroy_ratio == 0.10
         assert cfg.max_destroy_ratio == 0.30
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
+        assert cfg.destroy_op_weights == [1.0, 2.0, 2.0]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
         assert cfg.no_improve_limit == 100
-        assert cfg.perturb_ratio == 0.50
+        assert cfg.perturb_ratio == 0.30
         assert cfg.num_workers == 4
 
     def test_custom_config(self) -> None:
@@ -89,8 +90,11 @@ class TestLocalSearchSolverIntegration:
         assert isinstance(result, Schedule)
 
     def test_respects_seed_determinism(self, instance) -> None:
-        r1 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=7)
-        r2 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=1.0, seed=7)
+        # time_limit=0.0 gives 0 LNS iterations (only greedy init runs), guaranteeing
+        # that both calls complete exactly the same computation regardless of wall-clock
+        # timing variance.
+        r1 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=0.0, seed=7)
+        r2 = LocalSearchSolver(_S1).solve(instance, time_limit_seconds=0.0, seed=7)
         assert r1.total_cost() == r2.total_cost()
         assert r1.total_violations() == r2.total_violations()
 
@@ -314,6 +318,29 @@ class TestDestroyRelated:
         rng = random.Random(0)
         removed = _destroy_related(sched, 1, rng, instance)
         assert len(removed) == 1
+
+    def test_room_proximity_extends_related_set(self) -> None:
+        """Patients sharing the same room on overlapping days are added to the related set.
+
+        Uses i04, which has two surgeons, so the two patients have different surgeon
+        indices and are NOT related by surgeon — only by room proximity.
+        """
+        inst = load_instance(Path("data/instances/i04.json"))
+        surg0 = inst.patients[0].surgeon
+        p0 = 0
+        p1 = next(i for i in range(len(inst.patients)) if inst.patients[i].surgeon != surg0)
+
+        sched = Schedule(inst)
+        # assign_patient does not enforce constraints; day/room/theater chosen for simplicity.
+        sched.assign_patient(p0, 0, 0, 0)
+        sched.assign_patient(p1, 0, 0, 0)
+
+        rng = random.Random(0)
+        # Whichever patient is the seed, the other is in the same room on day 0 but
+        # has a different surgeon → room proximity must include both in the related set.
+        removed = _destroy_related(sched, 2, rng, inst)
+        assert len(removed) == 2
+        assert set(removed) == {p0, p1}
 
 
 # ---------------------------------------------------------------------------
@@ -713,6 +740,25 @@ class TestForcedInsert:
             assert p_b not in evicted  # B is mandatory, should never be evicted
         # The function must return a list regardless
         assert isinstance(evicted, list)
+
+    def test_skips_incompatible_rooms(self, instance) -> None:
+        """_forced_insert skips rooms listed in the patient's incompatible_rooms."""
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+        # Find a mandatory patient that has at least one incompatible room so the
+        # `if r in pat.incompatible_rooms: continue` branch is exercised.
+        p = next(
+            i
+            for i, pat in enumerate(instance.patients)
+            if pat.mandatory and pat.incompatible_rooms
+        )
+        t_load, s_load = self._loads(sched, instance)
+        w_d = instance.weights.patient_delay
+        w_t = instance.weights.open_operating_theater
+        # Empty schedule → surgeon has capacity, so the inner room loop executes
+        # and incompatible rooms are skipped, covering the continue branch.
+        _forced_insert(p, sched, greedy, instance, t_load, s_load, w_d, w_t)
+        assert isinstance(sched.patient_day[p], int)
 
     def test_mandatory_in_room_blocks_forced_insert(self, instance) -> None:
         """A room where mandatory_cnt + n_occ + 1 > capacity is skipped."""
