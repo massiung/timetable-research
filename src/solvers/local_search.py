@@ -376,24 +376,76 @@ def _compute_surgeon_load(schedule: Schedule, instance: Instance) -> list[list[i
     return load
 
 
+_INF_COST = 10**9
+
+
+def _compute_insertion_regret(
+    p: int,
+    schedule: Schedule,
+    instance: Instance,
+    theater_load: list[list[int]],
+    surgeon_load: list[list[int]],
+    w_delay: int,
+    w_theater: int,
+    greedy: GreedySolver,
+) -> tuple[int, int]:
+    """Return (best_score, second_best_score) for inserting patient p without committing."""
+    pat = instance.patients[p]
+    scores: list[int] = []
+
+    for day in range(pat.surgery_release_day, pat.last_possible_day + 1):
+        s_idx = pat.surgeon
+        if (
+            surgeon_load[s_idx][day] + pat.surgery_duration
+            > instance.surgeons[s_idx].max_surgery_time[day]
+        ):
+            continue
+        room = greedy._find_room(p, day, instance, schedule)
+        if room is None:
+            continue
+        for t, th in enumerate(instance.operating_theaters):
+            if theater_load[t][day] + pat.surgery_duration > th.availability[day]:
+                continue
+            t_cost = 0 if theater_load[t][day] > 0 else w_theater
+            scores.append((day - pat.surgery_release_day) * w_delay + t_cost)
+
+    if not scores:
+        return (_INF_COST, _INF_COST)
+    scores.sort()
+    second_best = scores[1] if len(scores) > 1 else _INF_COST
+    return (scores[0], second_best)
+
+
 def _repair_patients(
     schedule: Schedule,
     removed: list[int],
     greedy: GreedySolver,
     instance: Instance,
 ) -> None:
-    order = sorted(
-        removed,
-        key=lambda p: (
-            0 if instance.patients[p].mandatory else 1,
-            instance.patients[p].last_possible_day,
-            -instance.patients[p].surgery_duration,
-        ),
-    )
     theater_load = _compute_theater_load(schedule, instance)
     surgeon_load = _compute_surgeon_load(schedule, instance)
     w_delay = instance.weights.patient_delay
     w_theater = instance.weights.open_operating_theater
+
+    regrets = {
+        p: _compute_insertion_regret(
+            p, schedule, instance, theater_load, surgeon_load, w_delay, w_theater, greedy
+        )
+        for p in removed
+    }
+
+    def _regret_key(p: int) -> tuple[int, int, int, int]:
+        is_optional = 0 if instance.patients[p].mandatory else 1
+        best, second_best = regrets[p]
+        regret = second_best - best
+        return (
+            is_optional,
+            -regret,
+            instance.patients[p].last_possible_day,
+            -instance.patients[p].surgery_duration,
+        )
+
+    order = sorted(removed, key=_regret_key)
 
     for p in order:
         _insert_best(p, schedule, greedy, instance, theater_load, surgeon_load, w_delay, w_theater)

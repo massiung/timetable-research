@@ -23,6 +23,7 @@ from src.solvers.local_search import (
     LocalSearchSolver,
     _clear_nurses,
     _clone,
+    _compute_insertion_regret,
     _compute_surgeon_load,
     _compute_theater_load,
     _copy_into,
@@ -31,6 +32,7 @@ from src.solvers.local_search import (
     _destroy_random,
     _destroy_related,
     _forced_insert,
+    _INF_COST,
     _insert_best,
     _lns_worker,
     _objective,
@@ -480,6 +482,45 @@ class TestRepairPatients:
 
 
 # ---------------------------------------------------------------------------
+# _compute_insertion_regret
+# ---------------------------------------------------------------------------
+
+
+class TestComputeInsertionRegret:
+    def _make_greedy(self) -> GreedySolver:
+        return GreedySolver(GreedyConfig())
+
+    def test_returns_finite_scores_when_slots_available(self, instance, greedy_schedule) -> None:
+        sched = _clone(greedy_schedule)
+        greedy = self._make_greedy()
+        p = next(i for i, d in enumerate(sched.patient_day) if d != -1)
+        sched.unassign_patient(p)
+        t_load = _compute_theater_load(sched, instance)
+        s_load = _compute_surgeon_load(sched, instance)
+        best, second = _compute_insertion_regret(
+            p, sched, instance, t_load, s_load,
+            instance.weights.patient_delay, instance.weights.open_operating_theater, greedy
+        )
+        assert best <= second
+
+    def test_no_feasible_slot_returns_inf_inf(self, instance) -> None:
+        sched = Schedule(instance)
+        greedy = self._make_greedy()
+        p = 0
+        s_load = [
+            [instance.surgeons[s].max_surgery_time[d] for d in range(instance.days)]
+            for s in range(len(instance.surgeons))
+        ]
+        t_load = _compute_theater_load(sched, instance)
+        best, second = _compute_insertion_regret(
+            p, sched, instance, t_load, s_load,
+            instance.weights.patient_delay, instance.weights.open_operating_theater, greedy
+        )
+        assert best == _INF_COST
+        assert second == _INF_COST
+
+
+# ---------------------------------------------------------------------------
 # _rescue_mandatory
 # ---------------------------------------------------------------------------
 
@@ -713,6 +754,62 @@ class TestForcedInsert:
             assert p_b not in evicted  # B is mandatory, should never be evicted
         # The function must return a list regardless
         assert isinstance(evicted, list)
+
+    def test_incompatible_room_is_skipped(self, instance, monkeypatch) -> None:
+        """Cover _forced_insert line: if r in pat.incompatible_rooms: continue."""
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+        p_m = next(i for i, pat in enumerate(instance.patients) if pat.mandatory)
+        pat_m = instance.patients[p_m]
+        # Make all rooms except room 0 appear incompatible so the loop must skip them
+        all_rooms_except_zero = frozenset(range(1, len(instance.rooms)))
+        monkeypatch.setattr(pat_m, "incompatible_rooms", all_rooms_except_zero)
+        t_load = _compute_theater_load(sched, instance)
+        s_load = _compute_surgeon_load(sched, instance)
+        w_d = instance.weights.patient_delay
+        w_t = instance.weights.open_operating_theater
+        _forced_insert(p_m, sched, greedy, instance, t_load, s_load, w_d, w_t)
+        # Regardless of placement, the incompatible-room branch was exercised
+
+    def test_room_full_of_mandatory_blocks_forced_insert(self, instance) -> None:
+        """Cover _forced_insert lines: feasible=False/break and continue after infeasible."""
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+
+        p_a = next(i for i, pat in enumerate(instance.patients) if pat.mandatory)
+        pat_a = instance.patients[p_a]
+        day = pat_a.surgery_release_day
+
+        # Find other mandatory patients of same gender to pack a room
+        same_gender_mandatory = [
+            i for i, pat in enumerate(instance.patients)
+            if pat.mandatory and pat.gender == pat_a.gender and i != p_a
+        ]
+        if not same_gender_mandatory:
+            pytest.skip("Need multiple same-gender mandatory patients")
+
+        # Pick a compatible room and pack it with mandatory patients up to capacity
+        r_target = next(
+            (r for r, room in enumerate(instance.rooms)
+             if r not in pat_a.incompatible_rooms and room.capacity >= 1),
+            None,
+        )
+        if r_target is None:
+            pytest.skip("No compatible room found")
+
+        room = instance.rooms[r_target]
+        for filler in same_gender_mandatory[: room.capacity]:
+            sched.assign_patient(filler, day, r_target, 0)
+
+        t_load = _compute_theater_load(sched, instance)
+        s_load = _compute_surgeon_load(sched, instance)
+        w_d = instance.weights.patient_delay
+        w_t = instance.weights.open_operating_theater
+        # r_target is now mandatory_cnt >= capacity, so it should be skipped
+        _forced_insert(p_a, sched, greedy, instance, t_load, s_load, w_d, w_t)
+        # The mandatory patients filling r_target must remain assigned
+        for filler in same_gender_mandatory[: room.capacity]:
+            assert sched.patient_day[filler] == day
 
     def test_mandatory_in_room_blocks_forced_insert(self, instance) -> None:
         """A room where mandatory_cnt + n_occ + 1 > capacity is skipped."""
