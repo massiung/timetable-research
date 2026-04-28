@@ -15,3 +15,5 @@ exp013	7bc8bcc	2026-04-25	exp/three-candidates	local_search	38494.5	30	60.04	dis
 exp014	fb8cda0	2026-04-28	exp/sa-acceptance	local_search	38580.0	30	60.04	discard	SA acceptance (T0=2%*init_cost, alpha=0.9997); 29/30 feasible; 2.4% worse than exp011; SA too hot at 60s
 exp015	3390730	2026-04-28	exp/regret-repair	local_search	38380.3	30	60.05	keep	regret-2 repair (static pre-sort by second_best−best); best 4-worker/60s so far; 29/30 feasible
 exp016	9133e14	2026-04-28	exp/alns-weights	local_search	38310.6	30	60.05	keep	ALNS op-weights (sigma1=33, decay=0.8, seg=100) + regret; −0.2% vs exp015; 29/30 feasible
+exp017	6942c3a	2026-04-28	exp/validate-1worker	local_search	38416.7	30	60.01	discard	regret+ALNS at 1-worker/60s; 29/30 feasible; 2% worse than exp011; regret halves iteration count
+exp018	a416508	2026-04-28	exp/alns-only-1w	local_search	38529.8	30	60.01	discard	ALNS alone (no regret), 1-worker/60s; 29/30 feasible; 2.3% worse than exp011; diversity reduction hurts
