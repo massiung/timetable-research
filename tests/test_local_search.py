@@ -69,7 +69,7 @@ class TestLNSConfig:
         assert cfg.rescue_gate == 50
         assert cfg.no_improve_limit == 100
         assert cfg.perturb_ratio == 0.50
-        assert cfg.num_workers == 4
+        assert cfg.num_workers == 1
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])

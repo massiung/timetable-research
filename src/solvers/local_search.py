@@ -63,7 +63,7 @@ class LNSConfig:
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
-    num_workers: int = 4
+    num_workers: int = 1
     # Adaptive LNS operator weights: reward operators that find new global bests.
     # sigma1 reward added to segment score on each new-best iteration.
     # Weights updated every alns_segment_size iterations via exponential smoothing.
