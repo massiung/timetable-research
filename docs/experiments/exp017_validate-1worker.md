@@ -3,7 +3,7 @@
 **Branch:** exp/validate-1worker
 **Date:** 2026-04-28
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -35,43 +35,52 @@ Built on `main` (after exp016 merge — includes regret-2 repair + ALNS):
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5418 | 0 | 60.00 |
+| i02 | 2186 | 0 | 60.00 |
+| i03 | 12090 | 0 | 60.00 |
+| i04 | 4048 | 0 | 60.00 |
+| i05 | 14467 | 0 | 60.00 |
+| i06 | 11729 | 0 | 60.00 |
+| i07 | 7764 | 0 | 60.00 |
+| i08 | 8842 | 0 | 60.01 |
+| i09 | 12532 | 0 | 60.00 |
+| i10 | 32400 | 0 | 60.00 |
+| i11 | 32218 | 0 | 60.00 |
+| i12 | 16395 | 0 | 60.00 |
+| i13 | 27041 | 0 | 60.01 |
+| i14 | 16585 | 0 | 60.01 |
+| i15 | 23970 | 0 | 60.00 |
+| i16 | 15019 | 2 | 60.00 |
+| i17 | 76860 | 0 | 60.01 |
+| i18 | 48052 | 0 | 60.00 |
+| i19 | 72043 | 0 | 60.02 |
+| i20 | 43423 | 0 | 60.00 |
+| i21 | 42128 | 0 | 60.00 |
+| i22 | 99698 | 0 | 60.02 |
+| i23 | 57065 | 0 | 60.03 |
+| i24 | 44304 | 0 | 60.05 |
+| i25 | 19660 | 0 | 60.02 |
+| i26 | 112868 | 0 | 60.01 |
+| i27 | 106771 | 0 | 60.02 |
+| i28 | 88855 | 0 | 60.01 |
+| i29 | 25162 | 0 | 60.01 |
+| i30 | 49511 | 0 | 60.03 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38416.7
+**avg_time_s:** 60.01
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
 
-<!-- What did we learn? -->
+regret repair + ALNS at 1-worker gives 38416.7 — 2% WORSE than exp011 (37675.6).
+Root cause: `_compute_insertion_regret` evaluates O(days × theaters) slots per patient
+BEFORE insertion (to compute ordering), which doubles work per repair step and
+roughly halves the iteration count in 60s. The quality gain per iteration does not
+compensate for the 50% fewer iterations, especially on small/medium instances where
+the solver does thousands of iterations.
+
+Key learning: regret repair is too computationally expensive at 60s iteration budgets.
+Any ordering improvement must be O(1) per patient (just using already-known patient data)
+to avoid this regression. Next: test ALNS alone (without regret) at 1-worker vs exp011.
