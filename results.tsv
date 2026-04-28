@@ -12,3 +12,4 @@ exp010	2557ee4	2026-04-22	exp/feasible-perturb	local_search	37713.2	30	60.00	dis
 exp011	abfe57f	2026-04-23	exp/perturb-n100	local_search	37675.6	30	60.00	keep	feasibility-gated perturb(N=100,50%); -0.044% vs exp007; 30/30 feasible; new best
 exp012	d7ed798	2026-04-23	exp/4thread-600s	local_search	37180.3	30	600.11	keep	4-worker parallel LNS + 600s time limit (competition-legal baseline); 30/30 feasible
 exp013	7bc8bcc	2026-04-25	exp/three-candidates	local_search	38494.5	30	60.04	discard	perturb_ratio 0.30 + weighted ops [1,2,2] + room-proximity related; 29/30 feasible; i16 infeasible again
+exp014	fb8cda0	2026-04-28	exp/sa-acceptance	local_search	38580.0	30	60.04	discard	SA acceptance (T0=2%*init_cost, alpha=0.9997); 29/30 feasible; 2.4% worse than exp011; SA too hot at 60s
