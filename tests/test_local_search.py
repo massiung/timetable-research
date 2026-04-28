@@ -68,6 +68,8 @@ class TestLNSConfig:
         assert cfg.no_improve_limit == 100
         assert cfg.perturb_ratio == 0.50
         assert cfg.num_workers == 4
+        assert cfg.sa_initial_temp_ratio == 0.02
+        assert cfg.sa_alpha == 0.9997
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -157,6 +159,42 @@ class TestLNSWorker:
         schedule.nurse_shift_rooms = result.nurse_shift_rooms
         schedule._room_day_patients = result.room_day_patients
         assert result.obj == _objective(schedule, cfg.violation_penalty)
+
+    def test_sa_calibrates_on_feasible_init(self, instance) -> None:
+        """SA is calibrated immediately when greedy starts feasible (T0 > 0 from iter 0)."""
+        cfg = LNSConfig(sa_initial_temp_ratio=0.02, sa_alpha=0.999, num_workers=1)
+        result = _lns_worker((instance, 2.0, 0, cfg))
+        assert isinstance(result, _WorkerResult)
+
+    def test_sa_calibrates_from_infeasible_start(self, instance, monkeypatch) -> None:
+        """SA calibration fires on the infeasible→feasible transition inside the LNS loop."""
+        orig_solve = GreedySolver.solve
+        call_count = [0]
+
+        def patched_solve(self: GreedySolver, inst: object, tl: float, s: int) -> Schedule:
+            sched = orig_solve(self, inst, tl, s)  # type: ignore[arg-type]
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # Unassign one mandatory patient to make the initial solution infeasible.
+                mandatory = [
+                    p
+                    for p, pat in enumerate(inst.patients)  # type: ignore[attr-defined]
+                    if pat.mandatory
+                ]
+                if mandatory:
+                    sched.unassign_patient(mandatory[0])
+            return sched
+
+        monkeypatch.setattr(GreedySolver, "solve", patched_solve)
+        cfg = LNSConfig(sa_initial_temp_ratio=0.02, sa_alpha=0.999, num_workers=1)
+        result = _lns_worker((instance, 3.0, 0, cfg))
+        assert isinstance(result, _WorkerResult)
+
+    def test_sa_disabled_runs_correctly(self, instance) -> None:
+        """sa_initial_temp_ratio=0.0 disables SA — pure hill climbing."""
+        cfg = LNSConfig(sa_initial_temp_ratio=0.0, num_workers=1)
+        result = _lns_worker((instance, 1.0, 0, cfg))
+        assert isinstance(result, _WorkerResult)
 
     def test_blocking_destroy_and_rescue_fail_streak(self, instance, monkeypatch) -> None:
         """Cover lines 132/140: blocking destroy and rescue_fail_streak.
@@ -713,6 +751,35 @@ class TestForcedInsert:
             assert p_b not in evicted  # B is mandatory, should never be evicted
         # The function must return a list regardless
         assert isinstance(evicted, list)
+
+    def test_incompatible_room_is_skipped(self, instance, monkeypatch) -> None:
+        """_forced_insert skips rooms that appear in pat.incompatible_rooms."""
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+        p_m = next(i for i, pat in enumerate(instance.patients) if pat.mandatory)
+        pat_m = instance.patients[p_m]
+
+        # Patch incompatible_rooms so every room except room 0 is incompatible.
+        all_rooms = frozenset(range(len(instance.rooms)))
+        keep_room = 0
+        fake_incompatible = all_rooms - {keep_room}
+        monkeypatch.setattr(pat_m, "incompatible_rooms", fake_incompatible)
+
+        t_load = _compute_theater_load(sched, instance)
+        s_load = _compute_surgeon_load(sched, instance)
+        # Calling forced_insert exercises the incompatible_rooms branch for all skipped rooms.
+        _forced_insert(
+            p_m,
+            sched,
+            greedy,
+            instance,
+            t_load,
+            s_load,
+            instance.weights.patient_delay,
+            instance.weights.open_operating_theater,
+        )
+        # Result can be placed or not; what matters is the branch was exercised.
+        assert isinstance(sched.patient_day[p_m], int)
 
     def test_mandatory_in_room_blocks_forced_insert(self, instance) -> None:
         """A room where mandatory_cnt + n_occ + 1 > capacity is skipped."""

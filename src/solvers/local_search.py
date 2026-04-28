@@ -30,6 +30,7 @@ or set LOGLEVEL=DEBUG in the environment when running via main.py.
 from __future__ import annotations
 
 import logging
+import math
 import random
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -58,12 +59,18 @@ class LNSConfig:
     violation_penalty: int = 1_000_000
     rescue_gate: int = 50
     # Feasibility-gated perturbation restart: after no_improve_limit consecutive
-    # non-improving iterations AND best is already feasible, destroy perturb_ratio of
-    # patients to escape deep local optima.
+    # iterations without improving the *best* solution AND best is feasible, destroy
+    # perturb_ratio of patients as a long-range escape hatch.
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
+    # Simulated Annealing acceptance.
+    # T_0 = sa_initial_temp_ratio * initial_feasible_cost.
+    # T decays per-iteration: T(i) = T_0 * sa_alpha^i (deterministic, seed-reproducible).
+    # Set sa_initial_temp_ratio = 0.0 to disable SA (pure hill climbing).
+    sa_initial_temp_ratio: float = 0.02
+    sa_alpha: float = 0.9997
 
 
 @dataclass
@@ -87,6 +94,7 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     current = greedy.solve(instance, time_limit_seconds, seed)
     best = _clone(current)
     best_obj = _objective(best, cfg.violation_penalty)
+    current_obj = best_obj
 
     n_p = len(instance.patients)
     mandatory_set = frozenset(p for p in range(n_p) if instance.patients[p].mandatory)
@@ -99,18 +107,34 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     )
 
     best_infeasible = n_undef > 0
+
+    # SA temperature: T_0 = sa_initial_temp_ratio * first_feasible_cost.
+    # Calibrated immediately if greedy starts feasible; otherwise when first
+    # feasibility is reached inside the loop.  Cooling is per-iteration:
+    # T(i) = T_0 * sa_alpha^i — fully deterministic given the same seed.
+    sa_enabled = cfg.sa_initial_temp_ratio > 0.0
+    sa_t0 = 0.0
+    if sa_enabled and not best_infeasible:
+        sa_t0 = best.total_cost() * cfg.sa_initial_temp_ratio
+        _log.info("SA calibrated on init: T0=%.1f", sa_t0)
+    sa_calibrated = sa_t0 > 0.0
+
     iters = 0
-    iters_since_improvement = 0
+    iters_since_best_improvement = 0
     rescue_fail_streak = 0
 
     while time.monotonic() < deadline:
-        if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
+        # Perturbation restart: long-range escape once temperature is cold and we're stuck.
+        if not best_infeasible and iters_since_best_improvement >= cfg.no_improve_limit:
+            _copy_into(current, best)
+            current_obj = best_obj
             k_perturb = max(1, int(cfg.perturb_ratio * n_p))
             perturbed = _destroy_random(current, k_perturb, rng, instance)
             _repair_patients(current, perturbed, greedy, instance)
             _clear_nurses(current, instance)
             greedy._assign_nurses(instance, current)
-            iters_since_improvement = 0
+            current_obj = _objective(current, cfg.violation_penalty)
+            iters_since_best_improvement = 0
             _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
 
         ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
@@ -142,13 +166,21 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
         greedy._assign_nurses(instance, current)
 
         obj = _objective(current, cfg.violation_penalty)
+
+        # Update global best regardless of acceptance decision.
         if obj < best_obj:
             best = _clone(current)
             best_obj = obj
-            best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
+            new_best_infeasible = any(best.patient_day[p] == -1 for p in mandatory_set)
+            if best_infeasible and not new_best_infeasible and sa_enabled and not sa_calibrated:
+                # Calibrate SA temperature on the first feasible solution's cost.
+                sa_t0 = best.total_cost() * cfg.sa_initial_temp_ratio
+                sa_calibrated = True
+                _log.info("SA calibrated: T0=%.1f", sa_t0)
+            best_infeasible = new_best_infeasible
             if not best_infeasible:
                 rescue_fail_streak = 0
-            iters_since_improvement = 0
+            iters_since_best_improvement = 0
             _log.debug(
                 "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                 iters,
@@ -158,9 +190,27 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
                 best.total_violations(),
                 best.total_cost(),
             )
+
+        # Acceptance decision for current solution (SA or hill climbing).
+        delta = obj - current_obj
+        if delta < 0:
+            # Strict improvement of current — always accept.
+            current_obj = obj
+            iters_since_best_improvement += 0  # already tracked above
+        elif sa_enabled and sa_calibrated and not best_infeasible:
+            # SA acceptance: temperature decays per-iteration for full determinism.
+            temp = sa_t0 * (cfg.sa_alpha**iters)
+            if temp > 0.0 and rng.random() < math.exp(-delta / temp):
+                current_obj = obj  # accept worse solution
+            else:
+                _copy_into(current, best)
+                current_obj = best_obj
+                iters_since_best_improvement += 1
         else:
+            # Pure hill climbing (infeasible phase or SA disabled).
             _copy_into(current, best)
-            iters_since_improvement += 1
+            current_obj = best_obj
+            iters_since_best_improvement += 1
 
         iters += 1
 
