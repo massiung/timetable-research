@@ -1,6 +1,6 @@
 # exp013: three-candidates-EsclA
 
-**Branch:** claude/exp011-three-candidates-EsclA
+**Branch:** exp/three-candidates
 **Date:** 2026-04-25
 **Solver:** local_search
 **Status:** discard
