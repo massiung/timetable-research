@@ -3,7 +3,7 @@
 **Branch:** claude/exp011-three-candidates-EsclA
 **Date:** 2026-04-25
 **Solver:** local_search
-**Status:** pending decision
+**Status:** discard
 
 ## Hypothesis
 
@@ -80,7 +80,7 @@ Built on main after exp012 merge:
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
 
 - avg_cost 38494.5 vs exp011's 37675.6 — **+2.2% regression** (worse, even excluding i16).
 - **i16 infeasible** (1 violation): the feasibility gate held in exp011 but broke here. The

@@ -11,4 +11,4 @@ exp009	66b9aea	2026-04-22	exp/perturbation-restart	local_search	38416.0	30	60.00
 exp010	2557ee4	2026-04-22	exp/feasible-perturb	local_search	37713.2	30	60.00	discard	feasibility-gated perturb(N=500,50%); +0.056% vs exp007; 30/30 feasible; N=500 too infrequent
 exp011	abfe57f	2026-04-23	exp/perturb-n100	local_search	37675.6	30	60.00	keep	feasibility-gated perturb(N=100,50%); -0.044% vs exp007; 30/30 feasible; new best
 exp012	d7ed798	2026-04-23	exp/4thread-600s	local_search	37180.3	30	600.11	keep	4-worker parallel LNS + 600s time limit (competition-legal baseline); 30/30 feasible
-exp013	7bc8bcc	2026-04-25	claude/exp011-three-candidates-EsclA	local_search	38494.5	30	60.04	pending	perturb_ratio 0.30 + weighted ops [1,2,2] + room-proximity related; 29/30 feasible; i16 infeasible again
+exp013	7bc8bcc	2026-04-25	claude/exp011-three-candidates-EsclA	local_search	38494.5	30	60.04	discard	perturb_ratio 0.30 + weighted ops [1,2,2] + room-proximity related; 29/30 feasible; i16 infeasible again
