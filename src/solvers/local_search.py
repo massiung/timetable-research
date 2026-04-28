@@ -64,6 +64,13 @@ class LNSConfig:
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
+    # Adaptive LNS operator weights: reward operators that find new global bests.
+    # sigma1 reward added to segment score on each new-best iteration.
+    # Weights updated every alns_segment_size iterations via exponential smoothing.
+    # Set alns_sigma1=0 to disable (all operators weighted equally).
+    alns_segment_size: int = 100
+    alns_sigma1: float = 33.0
+    alns_decay: float = 0.8
 
 
 @dataclass
@@ -103,6 +110,11 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     iters_since_improvement = 0
     rescue_fail_streak = 0
 
+    alns_enabled = cfg.alns_sigma1 > 0.0 and len(cfg.destroy_ops) > 1
+    op_weights: dict[str, float] = {op: 1.0 for op in cfg.destroy_ops}
+    seg_scores: dict[str, float] = {op: 0.0 for op in cfg.destroy_ops}
+    seg_counts: dict[str, int] = {op: 0 for op in cfg.destroy_ops}
+
     while time.monotonic() < deadline:
         if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
             k_perturb = max(1, int(cfg.perturb_ratio * n_p))
@@ -118,7 +130,11 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
 
         use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
         ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
-        op: str = rng.choice(ops)
+        if alns_enabled and not use_blocking:
+            weights = [op_weights[o] for o in ops]
+            op = rng.choices(ops, weights=weights, k=1)[0]
+        else:
+            op = rng.choice(ops)
 
         if op == "random":
             removed = _destroy_random(current, k, rng, instance)
@@ -149,6 +165,8 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             if not best_infeasible:
                 rescue_fail_streak = 0
             iters_since_improvement = 0
+            if alns_enabled and op in seg_scores:
+                seg_scores[op] += cfg.alns_sigma1
             _log.debug(
                 "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                 iters,
@@ -162,7 +180,15 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             _copy_into(current, best)
             iters_since_improvement += 1
 
+        if alns_enabled and op in seg_counts:
+            seg_counts[op] += 1
         iters += 1
+        if alns_enabled and iters % cfg.alns_segment_size == 0:
+            for o in cfg.destroy_ops:
+                avg = seg_scores[o] / max(1, seg_counts[o])
+                op_weights[o] = cfg.alns_decay * op_weights[o] + (1.0 - cfg.alns_decay) * avg
+                seg_scores[o] = 0.0
+                seg_counts[o] = 0
 
     _log.info(
         "done: iters=%d violations=%d cost=%d",
