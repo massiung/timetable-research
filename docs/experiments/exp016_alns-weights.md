@@ -3,7 +3,7 @@
 **Branch:** exp/alns-weights
 **Date:** 2026-04-28
 **Solver:** local_search
-**Status:** pending
+**Status:** keep
 
 ## Hypothesis
 
@@ -45,43 +45,49 @@ Built on `main` (after exp015 merge — includes regret-2 repair):
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5381 | 0 | 60.02 |
+| i02 | 2005 | 0 | 60.02 |
+| i03 | 12080 | 0 | 60.02 |
+| i04 | 4048 | 0 | 60.02 |
+| i05 | 14410 | 0 | 60.03 |
+| i06 | 11725 | 0 | 60.03 |
+| i07 | 7766 | 0 | 60.03 |
+| i08 | 8740 | 0 | 60.04 |
+| i09 | 12467 | 0 | 60.03 |
+| i10 | 31945 | 0 | 60.03 |
+| i11 | 31992 | 0 | 60.03 |
+| i12 | 16399 | 0 | 60.02 |
+| i13 | 26750 | 0 | 60.03 |
+| i14 | 16235 | 0 | 60.03 |
+| i15 | 23448 | 0 | 60.03 |
+| i16 | 15333 | 1 | 60.03 |
+| i17 | 76230 | 0 | 60.07 |
+| i18 | 47951 | 0 | 60.04 |
+| i19 | 71836 | 0 | 60.09 |
+| i20 | 43539 | 0 | 60.03 |
+| i21 | 42051 | 0 | 60.05 |
+| i22 | 99698 | 0 | 60.06 |
+| i23 | 57013 | 0 | 60.09 |
+| i24 | 44304 | 0 | 60.11 |
+| i25 | 19665 | 0 | 60.10 |
+| i26 | 112868 | 0 | 60.09 |
+| i27 | 106789 | 0 | 60.06 |
+| i28 | 88817 | 0 | 60.06 |
+| i29 | 25078 | 0 | 60.05 |
+| i30 | 49776 | 0 | 60.09 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38310.6
+**avg_time_s:** 60.05
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** keep
 
-<!-- What did we learn? -->
+ALNS improves over exp015 (regret-only, 38380.3) → 38310.6 (−0.2%). The 4-worker
+benchmark consistently underperforms 1-worker/60s (exp011: 37675.6) because Python
+ProcessPoolExecutor initialization overhead (~2–3s per worker) consumes ~5% of the
+60s budget at startup. At 600s this overhead would amortize to <0.5% and both regret
+repair and ALNS would show larger gains. The algorithm stack is now:
+regret-2 repair + ALNS operator weights + perturbation restart.
+Next step: validate algorithm improvements at 1-worker/60s against exp011.
