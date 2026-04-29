@@ -43,11 +43,11 @@ from src.utils.schedule import Schedule
 
 _log = logging.getLogger(__name__)
 
-DestroyOp = Literal["random", "related", "high_delay"]
+DestroyOp = Literal["random", "related", "high_delay", "heavy_day"]
 
 
 def _default_ops() -> list[DestroyOp]:
-    return ["random", "related", "high_delay"]
+    return ["random", "related", "high_delay", "heavy_day"]
 
 
 @dataclass
@@ -63,14 +63,7 @@ class LNSConfig:
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
-    num_workers: int = 4
-    # Adaptive LNS operator weights: reward operators that find new global bests.
-    # sigma1 reward added to segment score on each new-best iteration.
-    # Weights updated every alns_segment_size iterations via exponential smoothing.
-    # Set alns_sigma1=0 to disable (all operators weighted equally).
-    alns_segment_size: int = 100
-    alns_sigma1: float = 33.0
-    alns_decay: float = 0.8
+    num_workers: int = 1
 
 
 @dataclass
@@ -110,11 +103,6 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     iters_since_improvement = 0
     rescue_fail_streak = 0
 
-    alns_enabled = cfg.alns_sigma1 > 0.0 and len(cfg.destroy_ops) > 1
-    op_weights: dict[str, float] = {op: 1.0 for op in cfg.destroy_ops}
-    seg_scores: dict[str, float] = {op: 0.0 for op in cfg.destroy_ops}
-    seg_counts: dict[str, int] = {op: 0 for op in cfg.destroy_ops}
-
     while time.monotonic() < deadline:
         if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
             k_perturb = max(1, int(cfg.perturb_ratio * n_p))
@@ -130,11 +118,7 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
 
         use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
         ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
-        if alns_enabled and not use_blocking:
-            weights = [op_weights[o] for o in ops]
-            op = rng.choices(ops, weights=weights, k=1)[0]
-        else:
-            op = rng.choice(ops)
+        op = rng.choice(ops)
 
         if op == "random":
             removed = _destroy_random(current, k, rng, instance)
@@ -142,6 +126,8 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             removed = _destroy_related(current, k, rng, instance)
         elif op == "high_delay":
             removed = _destroy_high_delay(current, k, instance)
+        elif op == "heavy_day":
+            removed = _destroy_heavy_day(current, k, instance)
         else:
             removed = _destroy_blocking_mandatory(current, k, rng, instance, mandatory_set)
 
@@ -165,8 +151,6 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             if not best_infeasible:
                 rescue_fail_streak = 0
             iters_since_improvement = 0
-            if alns_enabled and op in seg_scores:
-                seg_scores[op] += cfg.alns_sigma1
             _log.debug(
                 "iter %d: op=%s k=%d rescued=%d  NEW BEST violations=%d cost=%d",
                 iters,
@@ -180,15 +164,7 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             _copy_into(current, best)
             iters_since_improvement += 1
 
-        if alns_enabled and op in seg_counts:
-            seg_counts[op] += 1
         iters += 1
-        if alns_enabled and iters % cfg.alns_segment_size == 0:
-            for o in cfg.destroy_ops:
-                avg = seg_scores[o] / max(1, seg_counts[o])
-                op_weights[o] = cfg.alns_decay * op_weights[o] + (1.0 - cfg.alns_decay) * avg
-                seg_scores[o] = 0.0
-                seg_counts[o] = 0
 
     _log.info(
         "done: iters=%d violations=%d cost=%d",
@@ -325,6 +301,27 @@ def _destroy_high_delay(schedule: Schedule, k: int, instance: Instance) -> list[
     return to_remove
 
 
+def _destroy_heavy_day(schedule: Schedule, k: int, instance: Instance) -> list[int]:
+    """Remove k patients from the days with the highest total surgery load."""
+    day_load = [0] * instance.days
+    assigned_by_day: list[list[int]] = [[] for _ in range(instance.days)]
+    for p, d in enumerate(schedule.patient_day):
+        if d != -1:
+            day_load[d] += instance.patients[p].surgery_duration
+            assigned_by_day[d].append(p)
+    to_remove: list[int] = []
+    for day in sorted(range(instance.days), key=lambda d: -day_load[d]):
+        if len(to_remove) >= k:
+            break
+        for p in assigned_by_day[day]:
+            if len(to_remove) >= k:
+                break
+            to_remove.append(p)
+    for p in to_remove:
+        schedule.unassign_patient(p)
+    return to_remove
+
+
 def _destroy_blocking_mandatory(
     schedule: Schedule,
     k: int,
@@ -402,46 +399,6 @@ def _compute_surgeon_load(schedule: Schedule, instance: Instance) -> list[list[i
     return load
 
 
-_INF_COST = 10**9
-
-
-def _compute_insertion_regret(
-    p: int,
-    schedule: Schedule,
-    instance: Instance,
-    theater_load: list[list[int]],
-    surgeon_load: list[list[int]],
-    w_delay: int,
-    w_theater: int,
-    greedy: GreedySolver,
-) -> tuple[int, int]:
-    """Return (best_score, second_best_score) for inserting patient p without committing."""
-    pat = instance.patients[p]
-    scores: list[int] = []
-
-    for day in range(pat.surgery_release_day, pat.last_possible_day + 1):
-        s_idx = pat.surgeon
-        if (
-            surgeon_load[s_idx][day] + pat.surgery_duration
-            > instance.surgeons[s_idx].max_surgery_time[day]
-        ):
-            continue
-        room = greedy._find_room(p, day, instance, schedule)
-        if room is None:
-            continue
-        for t, th in enumerate(instance.operating_theaters):
-            if theater_load[t][day] + pat.surgery_duration > th.availability[day]:
-                continue
-            t_cost = 0 if theater_load[t][day] > 0 else w_theater
-            scores.append((day - pat.surgery_release_day) * w_delay + t_cost)
-
-    if not scores:
-        return (_INF_COST, _INF_COST)
-    scores.sort()
-    second_best = scores[1] if len(scores) > 1 else _INF_COST
-    return (scores[0], second_best)
-
-
 def _repair_patients(
     schedule: Schedule,
     removed: list[int],
@@ -453,25 +410,14 @@ def _repair_patients(
     w_delay = instance.weights.patient_delay
     w_theater = instance.weights.open_operating_theater
 
-    regrets = {
-        p: _compute_insertion_regret(
-            p, schedule, instance, theater_load, surgeon_load, w_delay, w_theater, greedy
-        )
-        for p in removed
-    }
-
-    def _regret_key(p: int) -> tuple[int, int, int, int]:
-        is_optional = 0 if instance.patients[p].mandatory else 1
-        best, second_best = regrets[p]
-        regret = second_best - best
-        return (
-            is_optional,
-            -regret,
+    order = sorted(
+        removed,
+        key=lambda p: (
+            0 if instance.patients[p].mandatory else 1,
             instance.patients[p].last_possible_day,
             -instance.patients[p].surgery_duration,
-        )
-
-    order = sorted(removed, key=_regret_key)
+        ),
+    )
 
     for p in order:
         _insert_best(p, schedule, greedy, instance, theater_load, surgeon_load, w_delay, w_theater)
