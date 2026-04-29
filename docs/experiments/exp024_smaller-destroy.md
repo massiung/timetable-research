@@ -3,7 +3,7 @@
 **Branch:** exp/smaller-destroy
 **Date:** 2026-04-29
 **Solver:** local_search
-**Status:** pending
+**Status:** keep
 
 ## Hypothesis
 
@@ -31,43 +31,49 @@ Built on exp/two-phase (itself built on main with ALNS stripped), then updated:
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5589 | 0 | 60.00 |
+| i02 | 2636 | 0 | 60.00 |
+| i03 | 12090 | 0 | 60.00 |
+| i04 | 4430 | 0 | 60.01 |
+| i05 | 14630 | 0 | 60.00 |
+| i06 | 11775 | 0 | 60.00 |
+| i07 | 7827 | 0 | 60.00 |
+| i08 | 9116 | 0 | 60.01 |
+| i09 | 12895 | 0 | 60.00 |
+| i10 | 32990 | 0 | 60.00 |
+| i11 | 32115 | 0 | 60.00 |
+| i12 | 16722 | 0 | 60.00 |
+| i13 | 27010 | 0 | 60.00 |
+| i14 | 16450 | 0 | 60.01 |
+| i15 | 22412 | 0 | 60.00 |
+| i16 | 15947 | 3 | 60.01 |
+| i17 | 75050 | 0 | 60.01 |
+| i18 | 47652 | 0 | 60.00 |
+| i19 | 72039 | 0 | 60.02 |
+| i20 | 42814 | 0 | 60.01 |
+| i21 | 41390 | 0 | 60.00 |
+| i22 | 99237 | 0 | 60.01 |
+| i23 | 57600 | 0 | 60.01 |
+| i24 | 44200 | 0 | 60.01 |
+| i25 | 19594 | 0 | 60.02 |
+| i26 | 111977 | 0 | 60.01 |
+| i27 | 105517 | 0 | 60.01 |
+| i28 | 88834 | 0 | 60.00 |
+| i29 | 24842 | 0 | 60.00 |
+| i30 | 49407 | 0 | 60.01 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38235.9
+**avg_time_s:** 60.01
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** keep / discard
+**Decision:** keep
 
-<!-- What did we learn? See docs/learnings.md for any reusable insight. -->
+Smaller destroy window (5–20%) gives 38235.9 — best since exp011 (37675.6), beating all
+experiments in the 38400–38900 range. More iterations with finer moves outperform larger moves
+even though each move is weaker. i16 still infeasible. The downward trend with smaller moves
+suggests going even smaller (3–12%) may give further gains.
+
+Key learning: smaller destroy moves → more iterations → better local search quality.
+The 10–30% range in exp011 is too large; 5–20% is better. Direction confirmed.
