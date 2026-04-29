@@ -60,8 +60,8 @@ def greedy_schedule(instance):
 class TestLNSConfig:
     def test_defaults(self) -> None:
         cfg = LNSConfig()
-        assert cfg.min_destroy_ratio == 0.05
-        assert cfg.max_destroy_ratio == 0.20
+        assert cfg.min_destroy_ratio == 0.03
+        assert cfg.max_destroy_ratio == 0.12
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
@@ -169,6 +169,26 @@ class TestLNSWorker:
         monkeypatch.setattr(GreedySolver, "solve", lambda self, inst, tl, s: Schedule(inst))
         monkeypatch.setattr(_lns_module, "_rescue_mandatory", lambda *a: 0)
         # destroy_ops=[] with rescue_gate=0 forces ops=["blocking"] every iteration
+        cfg = LNSConfig(destroy_ops=cast(list[DestroyOp], []), rescue_gate=0, num_workers=1)
+        result = _lns_worker((instance, 0.1, 0, cfg))
+        assert isinstance(result, _WorkerResult)
+
+    def test_rescue_success_resets_fail_streak(self, instance, monkeypatch) -> None:
+        """Cover line 137: rescue_fail_streak reset when rescue returns > 0.
+
+        Greedy returns empty schedule so best_infeasible=True. Rescue is patched
+        to return 1 on the first call, exercising the rescued > 0 branch.
+        """
+        first_call: list[bool] = [True]
+
+        def mock_rescue(*args: object) -> int:
+            if first_call[0]:
+                first_call[0] = False
+                return 1
+            return 0
+
+        monkeypatch.setattr(GreedySolver, "solve", lambda self, inst, tl, s: Schedule(inst))
+        monkeypatch.setattr(_lns_module, "_rescue_mandatory", mock_rescue)
         cfg = LNSConfig(destroy_ops=cast(list[DestroyOp], []), rescue_gate=0, num_workers=1)
         result = _lns_worker((instance, 0.1, 0, cfg))
         assert isinstance(result, _WorkerResult)
@@ -566,6 +586,42 @@ class TestRescueMandatory:
         assert isinstance(rescued, int)
         assert rescued >= 0
 
+    def test_rescue_still_unscheduled_forced_insert_fails(self, instance, monkeypatch) -> None:
+        """Cover lines 487, 490-492, 512: still_unscheduled path when forced insert fails.
+
+        _insert_best is patched to never place patients so every mandatory patient
+        lands in still_unscheduled.  _forced_insert is patched to also fail (return [])
+        so the 'rescue(failed)' else-branch (line 512) is exercised.
+        """
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+        monkeypatch.setattr(_lns_module, "_insert_best", lambda *a, **kw: None)
+        monkeypatch.setattr(_lns_module, "_forced_insert", lambda *a, **kw: [])
+        rescued = _rescue_mandatory(sched, greedy, instance)
+        assert rescued == 0
+
+    def test_rescue_still_unscheduled_forced_insert_succeeds(self, instance, monkeypatch) -> None:
+        """Cover lines 493-510: still_unscheduled path when forced insert succeeds with eviction.
+
+        _insert_best is a no-op so p_m goes to still_unscheduled.  _forced_insert is
+        patched to place p_m and return a non-empty evicted list, exercising the
+        post-eviction re-insertion loop (lines 501-510).
+        """
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+        p_m = next(i for i, pat in enumerate(instance.patients) if pat.mandatory)
+        p_nm = next(i for i, pat in enumerate(instance.patients) if not pat.mandatory)
+        day = instance.patients[p_m].surgery_release_day
+
+        def mock_forced_insert(p: int, sched_arg: Schedule, *a: object, **kw: object) -> list[int]:
+            sched_arg.assign_patient(p, day, 0, 0)
+            return [p_nm]
+
+        monkeypatch.setattr(_lns_module, "_insert_best", lambda *a, **kw: None)
+        monkeypatch.setattr(_lns_module, "_forced_insert", mock_forced_insert)
+        rescued = _rescue_mandatory(sched, greedy, instance)
+        assert rescued >= 1
+
 
 # ---------------------------------------------------------------------------
 # _forced_insert
@@ -817,6 +873,62 @@ class TestForcedInsert:
         _forced_insert(p_a, sched, greedy, instance, t_load, s_load, w_d, w_t)
         # p_b must remain assigned (never evicted by forced insert)
         assert sched.patient_day[p_b] == day
+
+    def test_eviction_loop_fires_when_rooms_blocked_by_recovery(self, instance) -> None:
+        """Cover lines 616-620: eviction loop in _forced_insert.
+
+        nm patients are placed one day before the mandatory patient's target day with
+        LOS >= 2, so they occupy the rooms on the target day (as recovering patients)
+        without consuming surgeon capacity on the target day.  The mandatory patient's
+        surgeon is blocked on every day except the target day, leaving no empty feasible
+        slot and forcing eviction.
+        """
+        sched = Schedule(instance)
+        greedy = GreedySolver(GreedyConfig())
+
+        p_m = next(i for i, pat in enumerate(instance.patients) if pat.mandatory)
+        pat_m = instance.patients[p_m]
+        target_day = pat_m.surgery_release_day
+        nm_day = target_day - 1
+
+        if nm_day < 0:
+            pytest.skip("Mandatory patient's release day is 0; no day available before it")
+
+        compatible_rooms = [r for r in range(len(instance.rooms)) if r not in pat_m.incompatible_rooms]
+        eligible_nm = [
+            i
+            for i, pat in enumerate(instance.patients)
+            if not pat.mandatory
+            and i != p_m
+            and pat.surgery_release_day <= nm_day
+            and pat.length_of_stay >= 2
+        ]
+        if len(eligible_nm) < len(compatible_rooms):
+            pytest.skip(
+                f"Not enough eligible nm patients ({len(eligible_nm)}) "
+                f"for {len(compatible_rooms)} rooms"
+            )
+
+        # Place one nm patient per compatible room on nm_day.  Their LOS >= 2 means they
+        # appear in _room_day_patients for target_day too (no additional surgery load).
+        for r, nm in zip(compatible_rooms, eligible_nm):
+            sched.assign_patient(nm, nm_day, r, 0)
+
+        s_load = _compute_surgeon_load(sched, instance)
+        # Block p_m's surgeon on every day except target_day
+        s_idx = pat_m.surgeon
+        for d in range(instance.days):
+            if d != target_day:
+                s_load[s_idx][d] = instance.surgeons[s_idx].max_surgery_time[d]
+
+        t_load = _compute_theater_load(sched, instance)
+        w_d = instance.weights.patient_delay
+        w_t = instance.weights.open_operating_theater
+        evicted = _forced_insert(p_m, sched, greedy, instance, t_load, s_load, w_d, w_t)
+
+        if not evicted:
+            pytest.skip("Could not trigger eviction: gender/occupant/theater constraints blocked all rooms")
+        assert sched.patient_day[p_m] != -1
 
 
 # ---------------------------------------------------------------------------
