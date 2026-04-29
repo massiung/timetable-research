@@ -52,8 +52,8 @@ def _default_ops() -> list[DestroyOp]:
 
 @dataclass
 class LNSConfig:
-    min_destroy_ratio: float = 0.05
-    max_destroy_ratio: float = 0.20
+    min_destroy_ratio: float = 0.03
+    max_destroy_ratio: float = 0.12
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
     violation_penalty: int = 1_000_000
     rescue_gate: int = 50
