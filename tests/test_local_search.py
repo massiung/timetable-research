@@ -65,7 +65,7 @@ class TestLNSConfig:
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
-        assert cfg.no_improve_limit == 100
+        assert cfg.no_improve_limit == 300
         assert cfg.perturb_ratio == 0.50
         assert cfg.num_workers == 1
 

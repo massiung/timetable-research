@@ -60,7 +60,7 @@ class LNSConfig:
     # Feasibility-gated perturbation restart: after no_improve_limit consecutive
     # non-improving iterations AND best is already feasible, destroy perturb_ratio of
     # patients to escape deep local optima.
-    no_improve_limit: int = 100
+    no_improve_limit: int = 300
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 1
