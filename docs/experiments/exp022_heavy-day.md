@@ -3,7 +3,7 @@
 **Branch:** exp/heavy-day
 **Date:** 2026-04-29
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -44,43 +44,51 @@ Built on `main` (after exp016 merge), reverting algorithmic additions:
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5578 | 0 | 60.00 |
+| i02 | 2278 | 0 | 60.00 |
+| i03 | 12120 | 0 | 60.00 |
+| i04 | 4416 | 0 | 60.00 |
+| i05 | 14820 | 0 | 60.00 |
+| i06 | 11799 | 0 | 60.00 |
+| i07 | 7896 | 0 | 60.00 |
+| i08 | 9338 | 0 | 60.01 |
+| i09 | 12686 | 0 | 60.00 |
+| i10 | 32960 | 0 | 60.00 |
+| i11 | 31965 | 0 | 60.00 |
+| i12 | 16557 | 0 | 60.01 |
+| i13 | 27046 | 0 | 60.01 |
+| i14 | 16371 | 0 | 60.01 |
+| i15 | 24547 | 0 | 60.00 |
+| i16 | 16060 | 2 | 60.00 |
+| i17 | 76595 | 0 | 60.01 |
+| i18 | 48142 | 0 | 60.00 |
+| i19 | 73412 | 0 | 60.01 |
+| i20 | 43167 | 0 | 60.01 |
+| i21 | 41973 | 0 | 60.01 |
+| i22 | 101158 | 0 | 60.02 |
+| i23 | 59249 | 0 | 60.02 |
+| i24 | 44221 | 0 | 60.03 |
+| i25 | 19943 | 0 | 60.01 |
+| i26 | 112791 | 0 | 60.01 |
+| i27 | 106971 | 0 | 60.01 |
+| i28 | 88770 | 0 | 60.01 |
+| i29 | 25094 | 0 | 60.02 |
+| i30 | 49379 | 0 | 60.01 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38663.5
+**avg_time_s:** 60.01
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
 
-<!-- What did we learn? -->
+`heavy_day` as 4th operator (25% each) gives 38663.5 — 2.6% WORSE than exp011 (37675.6).
+i16 still infeasible. The new operator doesn't improve things: adding a 4th operator dilutes
+each existing operator to 25% (from 33%), reducing their useful exploration. The capacity-based
+targeting also doesn't help — high-load days contain many short surgeries on small instances,
+so removing them doesn't target cost-driving patients.
+
+Key learning: adding operators hurts by diluting the existing balanced mix. With 3 operators at
+33% each, the solver already explores random/related/delay evenly. A 4th operator cannibalizes
+from one of the existing three. The optimal operator set for this problem is the original 3.
