@@ -3,7 +3,7 @@
 **Branch:** exp/nano-destroy
 **Date:** 2026-04-29
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -28,43 +28,48 @@ the global escape mechanism.
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5679 | 0 | 60.00 |
+| i02 | 2710 | 0 | 60.00 |
+| i03 | 12235 | 0 | 60.00 |
+| i04 | 4616 | 0 | 60.00 |
+| i05 | 15799 | 0 | 60.00 |
+| i06 | 11831 | 0 | 60.00 |
+| i07 | 8516 | 0 | 60.00 |
+| i08 | 10004 | 0 | 60.01 |
+| i09 | 13239 | 0 | 60.00 |
+| i10 | 33945 | 0 | 60.00 |
+| i11 | 32896 | 0 | 60.00 |
+| i12 | 17151 | 0 | 60.00 |
+| i13 | 27550 | 0 | 60.00 |
+| i14 | 17169 | 0 | 60.01 |
+| i15 | 24755 | 0 | 60.01 |
+| i16 | 15052 | 6 | 60.00 |
+| i17 | 74260 | 0 | 60.01 |
+| i18 | 48129 | 0 | 60.01 |
+| i19 | 71382 | 0 | 60.02 |
+| i20 | 43723 | 1 | 60.00 |
+| i21 | 41593 | 0 | 60.00 |
+| i22 | 100339 | 0 | 60.01 |
+| i23 | 57889 | 0 | 60.02 |
+| i24 | 44321 | 0 | 60.01 |
+| i25 | 19485 | 0 | 60.01 |
+| i26 | 110713 | 0 | 60.01 |
+| i27 | 102696 | 0 | 60.02 |
+| i28 | 88702 | 0 | 60.01 |
+| i29 | 24981 | 0 | 60.01 |
+| i30 | 50760 | 0 | 60.01 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38333.8
+**avg_time_s:** 60.01
+**n_feasible:** 28 / 30
 
 ## Conclusion
 
-**Decision:** keep / discard
+**Decision:** discard
 
-<!-- What did we learn? See docs/learnings.md for any reusable insight. -->
+Nano destroy (0.5–2%) gives 38333.8 with only 28/30 feasible — worse than exp026 (37891.3).
+Moves are too small: k=1 for many instances means the solver can't escape local optima or
+recover feasibility after perturbations. The sweet spot is around 1–6% (exp026).
+
+Key learning: there is an optimal destroy window. Below 1% min/6% max, moves become too
+fine-grained, diversity collapses, and infeasibility increases. exp026 [0.01, 0.06] is near-optimal.
