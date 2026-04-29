@@ -22,3 +22,4 @@ exp020	576f959	2026-04-29	exp/window-sort	local_search	38662.2	30	60.01	discard	
 exp021	7b336db	2026-04-29	exp/faster-perturb	local_search	38632.2	30	60.01	discard	N=50/ratio=0.40 perturbation; 29/30 feasible; 2.5% worse than exp011; too frequent restarts hurt
 exp022	6867e86	2026-04-29	exp/heavy-day	local_search	38663.5	30	60.01	discard	heavy_day 4th op (25% each); 29/30 feasible; 2.6% worse; dilutes existing 3 operators
 exp023	918f8bb	2026-04-29	exp/two-phase	local_search	38901.1	30	60.01	discard	larger-destroy (15-35%); 29/30 feasible; 3.2% worse than exp011; fewer iters outweigh larger moves
+exp024	1a3883f	2026-04-29	exp/smaller-destroy	local_search	38235.9	30	60.01	keep	smaller-destroy (5-20%); 29/30 feasible; best since exp011; more iters with finer moves
