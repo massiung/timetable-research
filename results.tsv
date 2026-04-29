@@ -19,3 +19,4 @@ exp017	6942c3a	2026-04-28	exp/validate-1worker	local_search	38416.7	30	60.01	dis
 exp018	a416508	2026-04-28	exp/alns-only-1w	local_search	38529.8	30	60.01	discard	ALNS alone (no regret), 1-worker/60s; 29/30 feasible; 2.3% worse than exp011; diversity reduction hurts
 exp019	48d6f99	2026-04-28	exp/targeted-perturb	local_search	38679.5	30	60.01	discard	high_delay perturb restart; 29/30 feasible; 2.7% worse than exp011; deterministic targeting reduces diversity
 exp020	576f959	2026-04-29	exp/window-sort	local_search	38662.2	30	60.01	discard	window-sort repair (narrowest window first); 29/30 feasible; 2.6% worse than exp011; disrupts temporal spreading
+exp021	7b336db	2026-04-29	exp/faster-perturb	local_search	38632.2	30	60.01	discard	N=50/ratio=0.40 perturbation; 29/30 feasible; 2.5% worse than exp011; too frequent restarts hurt
