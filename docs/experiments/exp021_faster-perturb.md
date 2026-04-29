@@ -3,7 +3,7 @@
 **Branch:** exp/faster-perturb
 **Date:** 2026-04-29
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -35,43 +35,51 @@ Built on `main` (after exp016 merge), reverting to exp011 baseline:
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5580 | 0 | 60.00 |
+| i02 | 2447 | 0 | 60.00 |
+| i03 | 12120 | 0 | 60.00 |
+| i04 | 4404 | 0 | 60.00 |
+| i05 | 14778 | 0 | 60.00 |
+| i06 | 11799 | 0 | 60.00 |
+| i07 | 7820 | 0 | 60.01 |
+| i08 | 9126 | 0 | 60.02 |
+| i09 | 12661 | 0 | 60.00 |
+| i10 | 33150 | 0 | 60.00 |
+| i11 | 32047 | 0 | 60.00 |
+| i12 | 16368 | 0 | 60.00 |
+| i13 | 27109 | 0 | 60.00 |
+| i14 | 16325 | 0 | 60.01 |
+| i15 | 23726 | 0 | 60.01 |
+| i16 | 16713 | 2 | 60.01 |
+| i17 | 77240 | 0 | 60.02 |
+| i18 | 48453 | 0 | 60.00 |
+| i19 | 71452 | 0 | 60.03 |
+| i20 | 43213 | 0 | 60.01 |
+| i21 | 42263 | 0 | 60.01 |
+| i22 | 100310 | 0 | 60.01 |
+| i23 | 59040 | 0 | 60.03 |
+| i24 | 44218 | 0 | 60.04 |
+| i25 | 19752 | 0 | 60.01 |
+| i26 | 113545 | 0 | 60.02 |
+| i27 | 107672 | 0 | 60.02 |
+| i28 | 88745 | 0 | 60.02 |
+| i29 | 25247 | 0 | 60.00 |
+| i30 | 49725 | 0 | 60.01 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38632.2
+**avg_time_s:** 60.01
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
 
-<!-- What did we learn? -->
+Faster perturbation (N=50, ratio=0.40) gives 38632.2 — 2.5% WORSE than exp011 (37675.6).
+i16 still infeasible. More frequent but smaller perturbations don't help: each perturbation
+fires before the local search has properly converged, wasting restarts on still-active local
+optima. The 50% perturbation + N=100 in exp011 balances exploration depth and restart frequency.
+
+Key learning: the N=100 / 50% configuration in exp011 is a sweet spot. Going more frequent (N=50)
+or less frequent (N=500, exp010) both hurt. Perturbation parameters are well-tuned.
+All structural and parameter changes have failed. Next: try a 4th destroy operator targeting
+surgery-load heavy days, a fundamentally different exploration pattern.
