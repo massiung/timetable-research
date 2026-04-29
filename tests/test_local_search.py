@@ -23,7 +23,6 @@ from src.solvers.local_search import (
     LocalSearchSolver,
     _clear_nurses,
     _clone,
-    _compute_insertion_regret,
     _compute_surgeon_load,
     _compute_theater_load,
     _copy_into,
@@ -32,7 +31,6 @@ from src.solvers.local_search import (
     _destroy_random,
     _destroy_related,
     _forced_insert,
-    _INF_COST,
     _insert_best,
     _lns_worker,
     _objective,
@@ -67,9 +65,9 @@ class TestLNSConfig:
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
-        assert cfg.no_improve_limit == 100
-        assert cfg.perturb_ratio == 0.50
-        assert cfg.num_workers == 4
+        assert cfg.no_improve_limit == 50
+        assert cfg.perturb_ratio == 0.40
+        assert cfg.num_workers == 1
 
     def test_custom_config(self) -> None:
         cfg = LNSConfig(min_destroy_ratio=0.2, destroy_ops=["random"])
@@ -479,45 +477,6 @@ class TestRepairPatients:
         greedy = GreedySolver(GreedyConfig())
         _repair_patients(sched, [], greedy, instance)
         assert sched.total_cost() == cost_before
-
-
-# ---------------------------------------------------------------------------
-# _compute_insertion_regret
-# ---------------------------------------------------------------------------
-
-
-class TestComputeInsertionRegret:
-    def _make_greedy(self) -> GreedySolver:
-        return GreedySolver(GreedyConfig())
-
-    def test_returns_finite_scores_when_slots_available(self, instance, greedy_schedule) -> None:
-        sched = _clone(greedy_schedule)
-        greedy = self._make_greedy()
-        p = next(i for i, d in enumerate(sched.patient_day) if d != -1)
-        sched.unassign_patient(p)
-        t_load = _compute_theater_load(sched, instance)
-        s_load = _compute_surgeon_load(sched, instance)
-        best, second = _compute_insertion_regret(
-            p, sched, instance, t_load, s_load,
-            instance.weights.patient_delay, instance.weights.open_operating_theater, greedy
-        )
-        assert best <= second
-
-    def test_no_feasible_slot_returns_inf_inf(self, instance) -> None:
-        sched = Schedule(instance)
-        greedy = self._make_greedy()
-        p = 0
-        s_load = [
-            [instance.surgeons[s].max_surgery_time[d] for d in range(instance.days)]
-            for s in range(len(instance.surgeons))
-        ]
-        t_load = _compute_theater_load(sched, instance)
-        best, second = _compute_insertion_regret(
-            p, sched, instance, t_load, s_load,
-            instance.weights.patient_delay, instance.weights.open_operating_theater, greedy
-        )
-        assert best == _INF_COST
-        assert second == _INF_COST
 
 
 # ---------------------------------------------------------------------------
