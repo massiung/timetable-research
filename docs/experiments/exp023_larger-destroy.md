@@ -3,7 +3,7 @@
 **Branch:** exp/two-phase
 **Date:** 2026-04-29
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -41,43 +41,48 @@ Built on `main` (after exp016 merge), reverting algorithmic additions:
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5469 | 0 | 60.00 |
+| i02 | 2500 | 0 | 60.00 |
+| i03 | 12120 | 0 | 60.00 |
+| i04 | 4339 | 0 | 60.00 |
+| i05 | 14944 | 0 | 60.00 |
+| i06 | 11799 | 0 | 60.00 |
+| i07 | 8035 | 0 | 60.00 |
+| i08 | 9235 | 0 | 60.01 |
+| i09 | 12755 | 0 | 60.00 |
+| i10 | 32755 | 0 | 60.00 |
+| i11 | 32235 | 0 | 60.01 |
+| i12 | 16514 | 0 | 60.00 |
+| i13 | 27340 | 0 | 60.01 |
+| i14 | 16643 | 0 | 60.01 |
+| i15 | 24012 | 0 | 60.01 |
+| i16 | 15816 | 2 | 60.00 |
+| i17 | 76960 | 0 | 60.01 |
+| i18 | 48176 | 0 | 60.01 |
+| i19 | 74470 | 0 | 60.02 |
+| i20 | 44455 | 0 | 60.00 |
+| i21 | 42953 | 0 | 60.01 |
+| i22 | 101745 | 0 | 60.02 |
+| i23 | 59292 | 0 | 60.01 |
+| i24 | 44348 | 0 | 60.03 |
+| i25 | 19964 | 0 | 60.01 |
+| i26 | 113937 | 0 | 60.01 |
+| i27 | 107681 | 0 | 60.02 |
+| i28 | 88707 | 0 | 60.01 |
+| i29 | 25181 | 0 | 60.01 |
+| i30 | 49569 | 0 | 60.01 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38901.1
+**avg_time_s:** 60.01
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** keep / discard
+**Decision:** discard
 
-<!-- What did we learn? See docs/learnings.md for any reusable insight. -->
+Larger destroy window (15–35%) gives 38901.1 — 3.2% WORSE than exp011 (37675.6). i16 still
+infeasible. Larger moves reduce total iteration count enough to outweigh any benefit from escaping
+deeper local optima. The exp011 range of 10–30% is well-calibrated.
+
+Key learning: the 10–30% destroy range in exp011 is near-optimal. Going larger (15–35%) hurts by
+reducing iteration count. Going smaller has not been tested yet.
