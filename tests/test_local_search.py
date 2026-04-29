@@ -60,8 +60,8 @@ def greedy_schedule(instance):
 class TestLNSConfig:
     def test_defaults(self) -> None:
         cfg = LNSConfig()
-        assert cfg.min_destroy_ratio == 0.01
-        assert cfg.max_destroy_ratio == 0.06
+        assert cfg.min_destroy_ratio == 0.005
+        assert cfg.max_destroy_ratio == 0.02
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
