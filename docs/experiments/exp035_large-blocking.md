@@ -3,7 +3,7 @@
 **Branch:** exp/large-blocking
 **Date:** 2026-04-30
 **Solver:** local_search
-**Status:** pending decision
+**Status:** discard
 
 ## Hypothesis
 
@@ -44,41 +44,63 @@ If i16 achieves violations=0, avg_cost drops below exp011 (37675.6).
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5608 | 0 | 60.02 |
+| i02 | 2451 | 0 | 60.02 |
+| i03 | 12165 | 0 | 60.02 |
+| i04 | 4444 | 0 | 60.03 |
+| i05 | 14499 | 0 | 60.04 |
+| i06 | 11810 | 0 | 60.03 |
+| i07 | 8051 | 0 | 60.02 |
+| i08 | 9491 | 0 | 60.05 |
+| i09 | 12807 | 0 | 60.03 |
+| i10 | 32240 | 0 | 60.03 |
+| i11 | 32366 | 0 | 60.03 |
+| i12 | 16789 | 0 | 60.03 |
+| i13 | 27302 | 0 | 60.03 |
+| i14 | 16698 | 0 | 60.03 |
+| i15 | 23433 | 0 | 60.04 |
+| i16 | 15778 | 2 | 60.04 |
+| i17 | 73300 | 0 | 60.05 |
+| i18 | 47814 | 0 | 60.04 |
+| i19 | 69668 | 0 | 60.08 |
+| i20 | 44233 | 0 | 60.03 |
+| i21 | 40458 | 0 | 60.05 |
+| i22 | 97814 | 0 | 60.06 |
+| i23 | 57683 | 0 | 60.06 |
+| i24 | 44149 | 0 | 60.07 |
+| i25 | 19410 | 0 | 60.05 |
+| i26 | 109269 | 0 | 60.08 |
+| i27 | 101613 | 0 | 60.07 |
+| i28 | 88657 | 0 | 60.06 |
+| i29 | 24731 | 0 | 60.04 |
+| i30 | 49480 | 0 | 60.06 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37877.0
+**avg_time_s:** 60.04
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
+
+Large destroy + rescue_gate=0 gives 37877.0 — worse than exp029 (37761.8) by 115 points.
+i16: violations=2 (better than exp034's 4, but worse than exp033's 1). The always-on blocking
+(rescue_gate=0) dilutes the operator pool: blocking fires from the first iteration but
+competes with random/related/high_delay (25% selection probability each), reducing the
+effective exploration in the infeasibility phase.
+
+Additionally, i20 regressed badly (+1431 vs exp029) because some workers start infeasible on
+i20 (greedy leaves mandatory patients unscheduled) and spend the entire 60s using large
+destroy — far fewer iterations than the small-k baseline.
+
+Key learnings consolidated from exp033-035:
+1. Large destroy (large k) helps escape i16's structural infeasibility — violations improved
+   from 5 (exp029) to 1 (exp033)
+2. rescue_gate=50 (late blocking) is better than rescue_gate=0/5 (early blocking) for i16
+3. The persistent regression on i20 reveals that some workers start infeasible on normally-
+   feasible instances, and any adaptive-destroy approach hurts them
+
+exp036 plan: two-phase approach — Phase 1 fires only when infeasible AND only for a fixed
+time window (e.g., 30s); Phase 2 (normal small LNS) starts immediately once feasibility
+is achieved OR after phase1_time expires. This caps the Phase 1 overhead for i20-like workers
+(which quickly become feasible) while giving i16 workers a full dedicated feasibility phase.
