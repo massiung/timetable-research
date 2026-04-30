@@ -29,3 +29,4 @@ exp027	ddb56b5	2026-04-29	exp/nano-destroy	local_search	38333.8	30	60.01	discard
 exp028	b69705b	2026-04-29	exp/less-perturb	local_search	37893.1	30	60.01	discard	less-perturb (N=300 vs 100); 29/30 feasible; identical to exp026; perturbation freq not binding
 exp029	417fef8	2026-04-30	exp/multi-worker	local_search	37761.8	30	60.03	keep	multi-worker (4 workers); 29/30 feasible; 0.23% from exp011; seed diversity helps
 exp030	a1fa984	2026-04-30	exp/more-workers	local_search	37877.3	30	60.06	discard	more-workers (8 workers); 29/30 feasible; CPU contention; worse than 4 workers
+exp031	6a1afb1	2026-04-30	exp/sa-accept	local_search	37792.4	30	60.03	discard	SA acceptance (temp=2% of init); large instances worse; greedy acceptance is better
