@@ -47,41 +47,47 @@ Expected: avg_cost < 37761.8 (exp029).
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5746 | 0 | 60.02 |
+| i02 | 2630 | 0 | 60.02 |
+| i03 | 12230 | 0 | 60.02 |
+| i04 | 4430 | 0 | 60.03 |
+| i05 | 14668 | 0 | 60.03 |
+| i06 | 11827 | 0 | 60.03 |
+| i07 | 8435 | 0 | 60.03 |
+| i08 | 9696 | 0 | 60.04 |
+| i09 | 13045 | 0 | 60.03 |
+| i10 | 32405 | 0 | 60.04 |
+| i11 | 32812 | 0 | 60.04 |
+| i12 | 16903 | 0 | 60.03 |
+| i13 | 27306 | 0 | 60.03 |
+| i14 | 16740 | 0 | 60.03 |
+| i15 | 23452 | 0 | 60.03 |
+| i16 | 14040 | 7 | 60.04 |
+| i17 | 73880 | 0 | 60.06 |
+| i18 | 47898 | 0 | 60.04 |
+| i19 | 68512 | 0 | 60.06 |
+| i20 | 43381 | 0 | 60.04 |
+| i21 | 41414 | 0 | 60.05 |
+| i22 | 98736 | 0 | 60.06 |
+| i23 | 56559 | 0 | 60.07 |
+| i24 | 44135 | 0 | 60.07 |
+| i25 | 19297 | 0 | 60.06 |
+| i26 | 111905 | 0 | 60.08 |
+| i27 | 103939 | 0 | 60.07 |
+| i28 | 88576 | 0 | 60.07 |
+| i29 | 24757 | 0 | 60.06 |
+| i30 | 48977 | 0 | 60.06 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 38079.0
+**avg_time_s:** 60.04
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
+
+Window-size sort key `(last_possible_day - surgery_release_day)` as primary order gives avg_cost=38079.0 — 317.2 points worse than exp029 (37761.8). 23 of 29 feasible instances regressed; only i04 (−14), i19 (−964), i23 (−995), i25 (−64), i28 (−45), i30 (−448) improved. i16 violations worsened from 5 (exp029) to 7.
+
+This replicates exp020's finding: window-sort disrupts the temporal spreading property of EDF ordering. The absolute deadline `last_possible_day` is the correct primary key — it places the most time-critical patients first, ensuring they get valid slots before broadly-windowed patients consume resources. Window size is a weaker proxy that breaks the urgency invariant.
+
+**Stop trying repair ordering changes. EDF (last_possible_day) is definitively better.**
