@@ -56,7 +56,7 @@ class LNSConfig:
     max_destroy_ratio: float = 0.06
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
     violation_penalty: int = 1_000_000
-    rescue_gate: int = 50
+    rescue_gate: int = 5
     # Feasibility-gated perturbation restart: after no_improve_limit consecutive
     # non-improving iterations AND best is already feasible, destroy perturb_ratio of
     # patients to escape deep local optima.
