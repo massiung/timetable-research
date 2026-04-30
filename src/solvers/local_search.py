@@ -15,9 +15,9 @@ reassigned from scratch (greedy) after every repair.
 After repair, a mandatory-rescue pass attempts to place any unscheduled mandatory
 patients, falling back to forced eviction of non-mandatory patients when needed.
 
-Acceptance: keep the new solution if its weighted objective
-  violations * PENALTY + total_cost
-is strictly lower than the current best.
+Acceptance: Late Acceptance Hill Climbing (LAHC) — accept if obj ≤ history[pos % L]
+  where history is a circular buffer of the last L evaluated objectives (L=500).
+  On rejection, revert to best. Always update history with the evaluated objective.
 
 Logging: uses the standard ``logging`` module at level INFO (iteration summaries)
 and DEBUG (per-iteration detail).  Enable with::
@@ -64,6 +64,9 @@ class LNSConfig:
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
+    # Late Acceptance Hill Climbing: accept if obj ≤ history[pos % L] where history
+    # is the circular buffer of the last L evaluated objectives.
+    lahc_history_len: int = 500
 
 
 @dataclass
@@ -100,12 +103,15 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     )
 
     best_infeasible = n_undef > 0
+    lahc_history = [best_obj] * cfg.lahc_history_len
+    lahc_pos = 0
     iters = 0
     iters_since_improvement = 0
     rescue_fail_streak = 0
 
     while time.monotonic() < deadline:
         if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
+            _copy_into(current, best)
             k_perturb = max(1, int(cfg.perturb_ratio * n_p))
             perturbed = _destroy_random(current, k_perturb, rng, instance)
             _repair_patients(current, perturbed, greedy, instance)
@@ -160,8 +166,12 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
                 best.total_cost(),
             )
         else:
-            _copy_into(current, best)
             iters_since_improvement += 1
+
+        if obj > lahc_history[lahc_pos % cfg.lahc_history_len]:
+            _copy_into(current, best)
+        lahc_history[lahc_pos % cfg.lahc_history_len] = obj
+        lahc_pos += 1
 
         iters += 1
 
