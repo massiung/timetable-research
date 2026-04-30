@@ -26,3 +26,4 @@ exp024	1a3883f	2026-04-29	exp/smaller-destroy	local_search	38235.9	30	60.01	keep
 exp025	a0de8ad	2026-04-29	exp/tiny-destroy	local_search	38051.8	30	60.01	keep	tiny-destroy (3-12%); 29/30 feasible; best yet; more iters > stronger moves
 exp026	e70efb7	2026-04-29	exp/micro-destroy	local_search	37891.3	30	60.01	keep	micro-destroy (1-6%); 29/30; 0.57% from exp011; trend continues
 exp027	ddb56b5	2026-04-29	exp/nano-destroy	local_search	38333.8	30	60.01	discard	nano-destroy (0.5-2%); 28/30 feasible; too small k; diversity collapse
+exp028	b69705b	2026-04-29	exp/less-perturb	local_search	37893.1	30	60.01	discard	less-perturb (N=300 vs 100); 29/30 feasible; identical to exp026; perturbation freq not binding
