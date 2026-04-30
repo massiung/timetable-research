@@ -392,6 +392,7 @@ def _repair_patients(
         removed,
         key=lambda p: (
             0 if instance.patients[p].mandatory else 1,
+            instance.patients[p].last_possible_day - instance.patients[p].surgery_release_day,
             instance.patients[p].last_possible_day,
             -instance.patients[p].surgery_duration,
         ),
