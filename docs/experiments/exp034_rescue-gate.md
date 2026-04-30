@@ -3,7 +3,7 @@
 **Branch:** exp/rescue-gate
 **Date:** 2026-04-30
 **Solver:** local_search
-**Status:** pending decision
+**Status:** discard
 
 ## Hypothesis
 
@@ -41,41 +41,55 @@ then minimize cost for the remaining ~55s — pushing avg_cost below exp011 (376
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5608 | 0 | 60.02 |
+| i02 | 2451 | 0 | 60.02 |
+| i03 | 12165 | 0 | 60.02 |
+| i04 | 4444 | 0 | 60.02 |
+| i05 | 14499 | 0 | 60.03 |
+| i06 | 11810 | 0 | 60.03 |
+| i07 | 8051 | 0 | 60.03 |
+| i08 | 9500 | 0 | 60.04 |
+| i09 | 12807 | 0 | 60.03 |
+| i10 | 32240 | 0 | 60.03 |
+| i11 | 32366 | 0 | 60.03 |
+| i12 | 16789 | 0 | 60.04 |
+| i13 | 27302 | 0 | 60.03 |
+| i14 | 16698 | 0 | 60.04 |
+| i15 | 23433 | 0 | 60.04 |
+| i16 | 15047 | 4 | 60.03 |
+| i17 | 73300 | 0 | 60.06 |
+| i18 | 47814 | 0 | 60.05 |
+| i19 | 69817 | 0 | 60.07 |
+| i20 | 43201 | 0 | 60.03 |
+| i21 | 40458 | 0 | 60.04 |
+| i22 | 97885 | 0 | 60.07 |
+| i23 | 57709 | 0 | 60.07 |
+| i24 | 44149 | 0 | 60.06 |
+| i25 | 19410 | 0 | 60.05 |
+| i26 | 109386 | 0 | 60.13 |
+| i27 | 101613 | 0 | 60.08 |
+| i28 | 88657 | 0 | 60.06 |
+| i29 | 24739 | 0 | 60.05 |
+| i30 | 49499 | 0 | 60.05 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37855.2
+**avg_time_s:** 60.04
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** pending
+**Decision:** discard
+
+rescue_gate=5 (small destroy) gives 37855.2 — worse than exp029 (37761.8) by 93 points.
+i16 regressed from exp033's violations=1 back to violations=4. The small-k blocking operator
+(k=1-6 patients) fires earlier but removes too few targeted patients per step — iterating
+over tiny targeted subsets without clearing the structural bottleneck (surgeon 2 capacity +
+room availability for patients 10 and 59).
+
+The exp033 insight is key: large destroy (k=20-50) was more effective at violations=1 than
+small destroy + early blocking (violations=4). The blocking operator needs large k to
+remove enough competing patients to open a feasible slot.
+
+Next: exp035 — combine adaptive large destroy (exp033) + rescue_gate=0 (always use
+blocking when infeasible). With large k AND always-on blocking, the targeted operator
+removes 20-50 specifically competing patients per step from the first iteration.
