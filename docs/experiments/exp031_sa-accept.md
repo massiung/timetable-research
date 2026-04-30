@@ -3,7 +3,7 @@
 **Branch:** exp/sa-accept
 **Date:** 2026-04-30
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -42,43 +42,48 @@ Expected: 0.5–2% improvement over exp029, potentially beating exp011 (37675.6)
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5528 | 0 | 60.01 |
+| i02 | 2370 | 0 | 60.02 |
+| i03 | 12165 | 0 | 60.02 |
+| i04 | 4501 | 0 | 60.02 |
+| i05 | 14467 | 0 | 60.02 |
+| i06 | 11793 | 0 | 60.02 |
+| i07 | 7985 | 0 | 60.02 |
+| i08 | 9306 | 0 | 60.03 |
+| i09 | 12706 | 0 | 60.02 |
+| i10 | 31990 | 0 | 60.02 |
+| i11 | 32441 | 0 | 60.02 |
+| i12 | 16819 | 0 | 60.02 |
+| i13 | 27284 | 0 | 60.02 |
+| i14 | 16499 | 0 | 60.03 |
+| i15 | 22981 | 0 | 60.02 |
+| i16 | 14677 | 3 | 60.02 |
+| i17 | 72870 | 0 | 60.04 |
+| i18 | 47769 | 0 | 60.03 |
+| i19 | 69641 | 0 | 60.05 |
+| i20 | 42912 | 0 | 60.03 |
+| i21 | 40992 | 0 | 60.04 |
+| i22 | 97232 | 0 | 60.05 |
+| i23 | 57864 | 0 | 60.06 |
+| i24 | 44095 | 0 | 60.05 |
+| i25 | 19355 | 0 | 60.03 |
+| i26 | 109697 | 0 | 60.06 |
+| i27 | 102382 | 0 | 60.05 |
+| i28 | 88554 | 0 | 60.04 |
+| i29 | 24719 | 0 | 60.04 |
+| i30 | 49064 | 0 | 60.04 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37792.4
+**avg_time_s:** 60.03
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** keep / discard
+**Decision:** discard
 
-<!-- What did we learn? -->
+SA with 2% temperature gives 37792.4 — worse than exp029 (37761.8, greedy acceptance) by 30
+points. SA helps on 16 of 29 instances (especially small/medium) but badly hurts large
+instances: i21 (+610), i26 (+726), i27 (+1106). For large instances, T_start = 2% of
+initial cost (~2000 points) is far too permissive, allowing the solver to drift away from
+good basins. With 4 workers already providing seed diversity, SA adds noise rather than useful
+exploration. Greedy acceptance remains best at this temperature calibration.

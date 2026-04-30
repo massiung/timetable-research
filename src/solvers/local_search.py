@@ -15,9 +15,9 @@ reassigned from scratch (greedy) after every repair.
 After repair, a mandatory-rescue pass attempts to place any unscheduled mandatory
 patients, falling back to forced eviction of non-mandatory patients when needed.
 
-Acceptance: keep the new solution if its weighted objective
-  violations * PENALTY + total_cost
-is strictly lower than the current best.
+Acceptance: simulated annealing — always accept improvements; accept worse solutions
+  with probability exp(-delta/T) where T decays geometrically from
+  sa_start_temp_ratio * initial_obj to sa_end_temp over the time budget.
 
 Logging: uses the standard ``logging`` module at level INFO (iteration summaries)
 and DEBUG (per-iteration detail).  Enable with::
@@ -30,6 +30,7 @@ or set LOGLEVEL=DEBUG in the environment when running via main.py.
 from __future__ import annotations
 
 import logging
+import math
 import random
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -64,6 +65,10 @@ class LNSConfig:
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
+    # Simulated annealing acceptance: T_start = sa_start_temp_ratio * initial_obj,
+    # decaying geometrically to sa_end_temp over the time budget.
+    sa_start_temp_ratio: float = 0.02
+    sa_end_temp: float = 0.1
 
 
 @dataclass
@@ -100,12 +105,14 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     )
 
     best_infeasible = n_undef > 0
+    init_temp = best_obj * cfg.sa_start_temp_ratio
     iters = 0
     iters_since_improvement = 0
     rescue_fail_streak = 0
 
     while time.monotonic() < deadline:
         if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
+            _copy_into(current, best)
             k_perturb = max(1, int(cfg.perturb_ratio * n_p))
             perturbed = _destroy_random(current, k_perturb, rng, instance)
             _repair_patients(current, perturbed, greedy, instance)
@@ -160,7 +167,17 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
                 best.total_cost(),
             )
         else:
-            _copy_into(current, best)
+            delta = obj - best_obj
+            if delta > 0 and init_temp > 0:
+                elapsed_frac = min(1.0, (time.monotonic() - start_time) / time_limit_seconds)
+                temp = max(
+                    cfg.sa_end_temp,
+                    init_temp * (cfg.sa_end_temp / init_temp) ** elapsed_frac,
+                )
+                if rng.random() >= math.exp(-delta / temp):
+                    _copy_into(current, best)
+            else:
+                _copy_into(current, best)
             iters_since_improvement += 1
 
         iters += 1
