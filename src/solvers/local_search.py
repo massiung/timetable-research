@@ -54,6 +54,9 @@ def _default_ops() -> list[DestroyOp]:
 class LNSConfig:
     min_destroy_ratio: float = 0.01
     max_destroy_ratio: float = 0.06
+    # When best is infeasible, use a larger destroy ratio to escape infeasibility faster.
+    infeasible_min_destroy: float = 0.20
+    infeasible_max_destroy: float = 0.50
     destroy_ops: list[DestroyOp] = field(default_factory=_default_ops)
     violation_penalty: int = 1_000_000
     rescue_gate: int = 50
@@ -114,7 +117,10 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
             iters_since_improvement = 0
             _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
 
-        ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
+        if best_infeasible:
+            ratio = rng.uniform(cfg.infeasible_min_destroy, cfg.infeasible_max_destroy)
+        else:
+            ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
         k = max(1, int(ratio * n_p))
 
         use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate

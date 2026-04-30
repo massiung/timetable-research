@@ -62,6 +62,8 @@ class TestLNSConfig:
         cfg = LNSConfig()
         assert cfg.min_destroy_ratio == 0.01
         assert cfg.max_destroy_ratio == 0.06
+        assert cfg.infeasible_min_destroy == 0.20
+        assert cfg.infeasible_max_destroy == 0.50
         assert cfg.destroy_ops == ["random", "related", "high_delay"]
         assert cfg.violation_penalty == 1_000_000
         assert cfg.rescue_gate == 50
