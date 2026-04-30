@@ -34,3 +34,4 @@ exp032	a01585b	2026-04-30	exp/lahc	local_search	38128.2	30	60.03	discard	LAHC (L
 exp033	83e8126	2026-04-30	exp/adaptive-destroy	local_search	37865.9	30	60.04	discard	adaptive destroy [0.20-0.50] when infeasible; i16 down to 1 violation but still infeasible; net regression vs exp029
 exp034	b9c7577	2026-04-30	exp/rescue-gate	local_search	37855.2	30	60.04	discard	rescue_gate=5 + small destroy; i16 violations=4 (worse than exp033 violations=1); small-k blocking insufficient
 exp035	2cbbe3b	2026-04-30	exp/large-blocking	local_search	37877.0	30	60.04	discard	large destroy + rescue_gate=0; always-on blocking dilutes operator pool; i16 violations=2; i20 regression +1431
+exp036	41e46b8	2026-04-30	exp/feasibility-phase	local_search	37887.6	30	60.04	discard	two-phase 30s feasibility + normal LNS; i16 violations=2; i20 regression +1431; stop targeting i16
