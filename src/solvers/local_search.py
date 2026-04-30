@@ -63,7 +63,7 @@ class LNSConfig:
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
-    num_workers: int = 4
+    num_workers: int = 8
 
 
 @dataclass

@@ -3,7 +3,7 @@
 **Branch:** exp/more-workers
 **Date:** 2026-04-30
 **Solver:** local_search
-**Status:** pending
+**Status:** discard
 
 ## Hypothesis
 
@@ -29,43 +29,46 @@ is negligible (~0.02s startup per worker).
 
 | Instance | Cost | Violations | Time (s) |
 |----------|------|------------|----------|
-| i01 | — | — | — |
-| i02 | — | — | — |
-| i03 | — | — | — |
-| i04 | — | — | — |
-| i05 | — | — | — |
-| i06 | — | — | — |
-| i07 | — | — | — |
-| i08 | — | — | — |
-| i09 | — | — | — |
-| i10 | — | — | — |
-| i11 | — | — | — |
-| i12 | — | — | — |
-| i13 | — | — | — |
-| i14 | — | — | — |
-| i15 | — | — | — |
-| i16 | — | — | — |
-| i17 | — | — | — |
-| i18 | — | — | — |
-| i19 | — | — | — |
-| i20 | — | — | — |
-| i21 | — | — | — |
-| i22 | — | — | — |
-| i23 | — | — | — |
-| i24 | — | — | — |
-| i25 | — | — | — |
-| i26 | — | — | — |
-| i27 | — | — | — |
-| i28 | — | — | — |
-| i29 | — | — | — |
-| i30 | — | — | — |
+| i01 | 5584 | 0 | 60.03 |
+| i02 | 2562 | 0 | 60.03 |
+| i03 | 12165 | 0 | 60.04 |
+| i04 | 4448 | 0 | 60.04 |
+| i05 | 14509 | 0 | 60.04 |
+| i06 | 11798 | 0 | 60.03 |
+| i07 | 8141 | 0 | 60.04 |
+| i08 | 9547 | 0 | 60.06 |
+| i09 | 12832 | 0 | 60.04 |
+| i10 | 32255 | 0 | 60.05 |
+| i11 | 32458 | 0 | 60.04 |
+| i12 | 16663 | 0 | 60.04 |
+| i13 | 27312 | 0 | 60.05 |
+| i14 | 16491 | 0 | 60.05 |
+| i15 | 23051 | 0 | 60.05 |
+| i16 | 14579 | 5 | 60.05 |
+| i17 | 73000 | 0 | 60.08 |
+| i18 | 47730 | 0 | 60.07 |
+| i19 | 70078 | 0 | 60.09 |
+| i20 | 42884 | 0 | 60.05 |
+| i21 | 40556 | 0 | 60.06 |
+| i22 | 98044 | 0 | 60.08 |
+| i23 | 57527 | 0 | 60.10 |
+| i24 | 44183 | 0 | 60.12 |
+| i25 | 19481 | 0 | 60.06 |
+| i26 | 110373 | 0 | 60.10 |
+| i27 | 102125 | 0 | 60.10 |
+| i28 | 88628 | 0 | 60.08 |
+| i29 | 24705 | 0 | 60.06 |
+| i30 | 49311 | 0 | 60.08 |
 
-**avg_cost:** —
-**avg_time_s:** —
-**n_feasible:** — / 30
+**avg_cost:** 37877.3
+**avg_time_s:** 60.06
+**n_feasible:** 29 / 30
 
 ## Conclusion
 
-**Decision:** keep / discard
+**Decision:** discard
 
-<!-- What did we learn? -->
+8 workers gives 37877.3 — worse than 4 workers (37761.8) by 116 points. CPU contention:
+the benchmark machine doesn't have 8 idle cores, so each worker gets less effective CPU
+time and does fewer LNS iterations per 60s. Quality per worker drops faster than the
+diversity gain compensates. 4 workers (exp029) is the sweet spot for this hardware.
