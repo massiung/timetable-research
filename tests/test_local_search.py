@@ -67,6 +67,9 @@ class TestLNSConfig:
         assert cfg.rescue_gate == 50
         assert cfg.no_improve_limit == 100
         assert cfg.perturb_ratio == 0.50
+        assert cfg.feasibility_phase_time == 30.0
+        assert cfg.infeasible_min_destroy == 0.20
+        assert cfg.infeasible_max_destroy == 0.50
         assert cfg.num_workers == 4
 
     def test_custom_config(self) -> None:
@@ -159,17 +162,34 @@ class TestLNSWorker:
         assert result.obj == _objective(schedule, cfg.violation_penalty)
 
     def test_blocking_destroy_and_rescue_fail_streak(self, instance, monkeypatch) -> None:
-        """Cover lines 132/140: blocking destroy and rescue_fail_streak.
+        """Cover Phase 2 blocking destroy and rescue_fail_streak paths.
 
-        Both lines only fire when best_infeasible=True (greedy left mandatory
-        patients unscheduled). We simulate that by patching greedy.solve to
-        return an empty Schedule and rescue to always return 0, so best_infeasible
-        persists and the rescue_fail_streak branch is exercised.
+        Uses feasibility_phase_time=0.0 to skip Phase 1 and exercise Phase 2
+        infeasible branches (rescue_gate and rescue_fail_streak).
         """
         monkeypatch.setattr(GreedySolver, "solve", lambda self, inst, tl, s: Schedule(inst))
         monkeypatch.setattr(_lns_module, "_rescue_mandatory", lambda *a: 0)
-        # destroy_ops=[] with rescue_gate=0 forces ops=["blocking"] every iteration
-        cfg = LNSConfig(destroy_ops=cast(list[DestroyOp], []), rescue_gate=0, num_workers=1)
+        # feasibility_phase_time=0 skips Phase 1; rescue_gate=0 forces blocking in Phase 2
+        cfg = LNSConfig(
+            destroy_ops=cast(list[DestroyOp], []),
+            rescue_gate=0,
+            feasibility_phase_time=0.0,
+            num_workers=1,
+        )
+        result = _lns_worker((instance, 0.1, 0, cfg))
+        assert isinstance(result, _WorkerResult)
+
+    def test_phase1_large_blocking(self, instance, monkeypatch) -> None:
+        """Cover Phase 1: large destroy + always-active blocking when infeasible."""
+        monkeypatch.setattr(GreedySolver, "solve", lambda self, inst, tl, s: Schedule(inst))
+        monkeypatch.setattr(_lns_module, "_rescue_mandatory", lambda *a: 0)
+        # feasibility_phase_time=10.0 > time_limit=0.1 so entire run is Phase 1
+        cfg = LNSConfig(
+            destroy_ops=cast(list[DestroyOp], []),
+            rescue_gate=50,
+            feasibility_phase_time=10.0,
+            num_workers=1,
+        )
         result = _lns_worker((instance, 0.1, 0, cfg))
         assert isinstance(result, _WorkerResult)
 

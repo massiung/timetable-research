@@ -62,6 +62,13 @@ class LNSConfig:
     # patients to escape deep local optima.
     no_improve_limit: int = 100
     perturb_ratio: float = 0.50
+    # Two-phase feasibility: if the greedy init is infeasible, Phase 1 runs large destroy
+    # + blocking operator for feasibility_phase_time seconds before switching to normal LNS.
+    # Phase 1 exits early if feasibility is achieved. Feasible-from-start instances skip
+    # Phase 1 entirely (zero overhead).
+    feasibility_phase_time: float = 30.0
+    infeasible_min_destroy: float = 0.20
+    infeasible_max_destroy: float = 0.50
     # Number of independent LNS workers to run in parallel (competition max: 4).
     num_workers: int = 4
 
@@ -103,22 +110,33 @@ def _lns_worker(args: tuple[Instance, float, int, LNSConfig]) -> _WorkerResult:
     iters = 0
     iters_since_improvement = 0
     rescue_fail_streak = 0
+    # Phase 1 end time: only set when greedy starts infeasible.
+    phase1_end = start_time + cfg.feasibility_phase_time if best_infeasible else start_time
 
     while time.monotonic() < deadline:
-        if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
-            k_perturb = max(1, int(cfg.perturb_ratio * n_p))
-            perturbed = _destroy_random(current, k_perturb, rng, instance)
-            _repair_patients(current, perturbed, greedy, instance)
-            _clear_nurses(current, instance)
-            greedy._assign_nurses(instance, current)
-            iters_since_improvement = 0
-            _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
+        in_phase1 = best_infeasible and time.monotonic() < phase1_end
 
-        ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
-        k = max(1, int(ratio * n_p))
+        if in_phase1:
+            # Phase 1: large destroy + blocking always active to escape structural infeasibility.
+            ratio = rng.uniform(cfg.infeasible_min_destroy, cfg.infeasible_max_destroy)
+            k = max(1, int(ratio * n_p))
+            ops: list[str] = [*cfg.destroy_ops, "blocking"]
+        else:
+            # Phase 2: normal LNS — perturbation restart + small destroy + gated blocking.
+            if not best_infeasible and iters_since_improvement >= cfg.no_improve_limit:
+                k_perturb = max(1, int(cfg.perturb_ratio * n_p))
+                perturbed = _destroy_random(current, k_perturb, rng, instance)
+                _repair_patients(current, perturbed, greedy, instance)
+                _clear_nurses(current, instance)
+                greedy._assign_nurses(instance, current)
+                iters_since_improvement = 0
+                _log.debug("iter %d: perturbation restart (k=%d)", iters, k_perturb)
 
-        use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
-        ops: list[str] = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
+            ratio = rng.uniform(cfg.min_destroy_ratio, cfg.max_destroy_ratio)
+            k = max(1, int(ratio * n_p))
+            use_blocking = best_infeasible and rescue_fail_streak >= cfg.rescue_gate
+            ops = [*cfg.destroy_ops, "blocking"] if use_blocking else list(cfg.destroy_ops)
+
         op = rng.choice(ops)
 
         if op == "random":
